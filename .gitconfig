@@ -1,8 +1,33 @@
+[diff]
+        algorithm = histogram
+        colorMoved = plain
+        mnemonicPrefix = true
+        renames = true
+[push]
+        default = simple
+        autoSetupRemote = true
+        followTags = true
+[fetch]
+        prune = true
+        pruneTags = true
+        all = true
+[help]
+        autocorrect = prompt
+[commit]
+        verbose = true
+[rerere]
+        enabled = true
+        autoupdate = true
 [core]
     pager = delta
-
 [interactive]
     diffFilter = delta --color-only
+    excludesfile = ~/.gitignore
+    autocrlf = input
+[rebase]
+        autoSquash = true
+        autoStash = true
+        updateRefs = true
 
 [delta]
     navigate = true  # use n and N to move between diff sections
@@ -10,3 +35,5 @@
 
 [merge]
     conflictstyle = zdiff3
+[pull]
+    rebase = true
