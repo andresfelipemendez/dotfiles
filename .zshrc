@@ -113,7 +113,11 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-export PATH="$(gcloud info --format='value(installation.sdk_root)')/bin:$PATH"
+if command -v gcloud >/dev/null 2>&1; then
+    export PATH="$(gcloud info --format='value(installation.sdk_root)')/bin:$PATH"
+else
+    echo "gcloud is not installed or not in PATH"
+fi
 
 alias code=codium
 
