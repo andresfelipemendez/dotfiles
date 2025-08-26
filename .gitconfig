@@ -1,3 +1,11 @@
+[user]
+	name = Andrés Felipe Méndez
+	email = fmendez1212@gmail.com
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
 [diff]
         algorithm = histogram
         colorMoved = plain
@@ -19,21 +27,13 @@
         enabled = true
         autoupdate = true
 [core]
-    pager = delta
-[interactive]
-    diffFilter = delta --color-only
-    excludesfile = ~/.gitignore
-    autocrlf = input
+        excludesfile = ~/.gitignore
+	    autocrlf = input
 [rebase]
         autoSquash = true
         autoStash = true
         updateRefs = true
-
-[delta]
-    navigate = true  # use n and N to move between diff sections
-    dark = true      # or light = true, or omit for auto-detection
-
 [merge]
-    conflictstyle = zdiff3
+        conflictstyle = zdiff3 
 [pull]
-    rebase = true
+        rebase = true

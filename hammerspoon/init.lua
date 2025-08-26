@@ -25,10 +25,13 @@ local application = require("hs.application")
 local window = require("hs.window")
 local apps = {
     ["1"] = "Obsidian",
-    ["2"] = "iTerm", 
+    ["2"] = "OBS",
+    
     ["3"] = "Safari",
     ["4"] = "GoLand",
-    ["5"] = "OBS",
+    
+
+    ["t"] = "iTerm", 
     ["e"] = "Finder"
 }
 

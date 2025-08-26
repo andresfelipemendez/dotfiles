@@ -21,11 +21,11 @@ ZSH_THEME="robbyrussell"
 
 # Uncomment the following line to use hyphen-insensitive completion.
 # Case-sensitive completion must be off. _ and - will be interchangeable.
-# HYPHEN_INSENSITIVE="true"
+HYPHEN_INSENSITIVE="true"
 
 # Uncomment one of the following lines to change the auto-update behavior
 # zstyle ':omz:update' mode disabled  # disable automatic updates
-# zstyle ':omz:update' mode auto      # update automatically without asking
+zstyle ':omz:update' mode auto      # update automatically without asking
 # zstyle ':omz:update' mode reminder  # just remind me to update when it's time
 
 # Uncomment the following line to change how often to auto-update (in days).
@@ -41,18 +41,18 @@ ZSH_THEME="robbyrussell"
 # DISABLE_AUTO_TITLE="true"
 
 # Uncomment the following line to enable command auto-correction.
-# ENABLE_CORRECTION="true"
+ENABLE_CORRECTION="true"
 
 # Uncomment the following line to display red dots whilst waiting for completion.
 # You can also set it to another string to have that shown instead of the default red dots.
 # e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
 # Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
-# COMPLETION_WAITING_DOTS="true"
+COMPLETION_WAITING_DOTS="true"
 
 # Uncomment the following line if you want to disable marking untracked files
 # under VCS as dirty. This makes repository status check for large repositories
 # much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
+DISABLE_UNTRACKED_FILES_DIRTY="true"
 
 # Uncomment the following line if you want to change the command execution time
 # stamp shown in the history command output.
@@ -70,7 +70,7 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(alias-finder copybuffer copyfile copypath vscode git-auto-fetch git fzf gh git-prompt golang web-search gitignore you-should-use zsh-syntax-highlighting zsh-autosuggestions zsh-bat)
+plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -100,5 +100,40 @@ source $ZSH/oh-my-zsh.sh
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
-# alias zshconfig="mate ~/.zshrc"
+alias zc="subl ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+
+source <(fzf --zsh)
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/andres/.lmstudio/bin"
+# End of LM Studio CLI section
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+export PATH="$(gcloud info --format='value(installation.sdk_root)')/bin:$PATH"
+
+alias code=codium
+
+export PATH="/opt/homebrew/sbin:$PATH"
+export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/Users/andres/flutter/bin:$PATH"
+
+nwt() {
+    local repo_path="/Users/andres/Developer/wt-hiro-gdk"
+    cd "$repo_path/main" &&
+    git fetch &&
+    git pull &&
+    git worktree add ../$1 -b $1 main &&
+    cd "$repo_path/$1"
+}
+
+t() {
+    local original_dir=$(pwd)
+    cd ~
+    tmux new-session "cd '$original_dir' && exec \$SHELL"
+}
+
+alias docker-nuke='docker stop $(docker ps -aq) 2>/dev/null; docker system prune -a --volumes -f'
