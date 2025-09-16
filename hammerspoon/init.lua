@@ -30,7 +30,7 @@ local apps = {
     ["3"] = "Safari",
     ["4"] = "GoLand",
     
-
+    ["f"] = "Fork",
     ["t"] = "iTerm", 
     ["e"] = "Finder"
 }

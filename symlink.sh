@@ -6,10 +6,19 @@ if ! command -v hammerspoon >/dev/null 2>&1; then
     brew install --cask hammerspoon
 fi
 
-[ -f ~/.hammerspoon/init.lua ] && rm ~/.hammerspoon/init.lua
-[ -f ~/.zshrc ] && rm ~/.zshrc
-[ -f ~/.gitconfig ] && rm ~/.gitconfig
+create_symlink() {
+    local source="$1"
+    local target="$2"
+    
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
+        return 0
+    fi
+    
+    [ -e "$target" ] && rm "$target"
+    ln -s "$source" "$target"
+}
 
-ln -s ~/dotfiles/hammerspoon/init.lua ~/.hammerspoon/init.lua
-ln -s ~/dotfiles/.zshrc ~/.zshrc
-ln -s ~/dotfiles/.gitconfig ~/.gitconfig
+create_symlink ~/dotfiles/hammerspoon/init.lua ~/.hammerspoon/init.lua
+create_symlink ~/dotfiles/.zshrc ~/.zshrc
+create_symlink ~/dotfiles/.gitconfig ~/.gitconfig
+create_symlink ~/dotfiles/.config/lazygit ~/.config/lazygit
