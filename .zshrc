@@ -140,7 +140,7 @@ nwt() {
 
 t() {
     local original_dir=$(pwd)
-    cd ~
+    cd ~/Developer
     tmux new-session "cd '$original_dir' && exec \$SHELL"
 }
 
@@ -209,4 +209,6 @@ buildhiro() {
     echo "SUCCESS: Moved './hiro-linux-arm64.bin' to '$TARGET_PATH/'."
 
 }
+export PATH=$PATH:$HOME/go/bin 
+export PATH="$HOME/Developer/utils/bin:$PATH"
 
