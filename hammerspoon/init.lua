@@ -35,6 +35,47 @@ local apps = {
     ["e"] = "Finder"
 }
 
+function getFrontmostFinderWindowPath()
+    local success, path, raw = hs.osascript.applescript([[
+        tell application "Finder"
+            set targetPath to POSIX path of (target of front Finder window as text)
+            return targetPath
+        end tell
+    ]])
+    if success then
+        return path
+    else
+        return nil
+    end
+end
+
+function openVSCodeInFinderPath()
+    local finderPath = getFrontmostFinderWindowPath()
+    if  type(finderPath) == "string" and finderPath ~= "" then
+        hs.execute('open -a "Visual Studio Code" "' .. finderPath .. '"')
+    else
+        print("No frontmost Finder window found.")
+    end
+end
+
+function openForkInFinderPath()
+    local finderPath = getFrontmostFinderWindowPath()
+    if  type(finderPath) == "string" and finderPath ~= "" then
+        hs.execute('/usr/local/bin/fork -C "' .. finderPath .. '"')
+    else
+        print("No frontmost Finder window found.")
+    end
+end
+
+
+local vsCodeShortcut = {"cmd", "ctrl"} -- Combination: Command + Control
+local vsCodeKey = "V"                 -- Key: V
+hs.hotkey.bind(vsCodeShortcut, vsCodeKey, openVSCodeInFinderPath)
+hs.hotkey.bind(vsCodeShortcut, "F", openForkInFinderPath)
+
+-- function openVSCodeInFinderPath()
+--     local path = hs.finder.frontmostFinderWindowPath()
+
 function smartAppSwitch(appName)
     local app = application.get(appName)
     

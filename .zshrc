@@ -119,8 +119,6 @@ else
     echo "gcloud is not installed or not in PATH"
 fi
 
-alias code=codium
-
 export PATH="/opt/homebrew/sbin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 export PATH="/Users/andres/flutter/bin:$PATH"
