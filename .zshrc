@@ -123,90 +123,32 @@ export PATH="/opt/homebrew/sbin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 export PATH="/Users/andres/flutter/bin:$PATH"
 
+# Task.dev - System-wide task runner
+# Taskfile.dist.yml is located at ~/Taskfile.dist.yml
+# Common tasks:
+#   task gu             - Git update (fetch and pull)
+#   task buildhiro      - Build Hiro plugin
+#   task nwt BRANCH=X   - Create new worktree and build
+#   task t              - Open tmux session
+#   task docker-nuke    - Clean up Docker
+#   task list-worktrees - List all worktrees
+# Run 'task --list' to see all available tasks
+
+# Convenience aliases for common tasks
+alias gu='task gu'
+alias buildhiro='task buildhiro'
+alias docker-nuke='task docker-nuke'
+
+# Wrapper functions for tasks that need parameters
 nwt() {
-    local repo_path="/Users/andres/Developer/wt-hiro-gdk"
-    cd "$repo_path/main" &&
-    git fetch &&
-    git pull &&
-    git worktree add ../$1 -b $1 main &&
-    cd "$repo_path/$1"
-    docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:latest build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
-    mkdir ../ProjectTemplate/lib
-    cp hiro-linux-arm64.bin ../ProjectTemplate/lib/
-    docker compose up --build
+    task nwt BRANCH="$1"
 }
 
 t() {
-    local original_dir=$(pwd)
-    cd ~/Developer
-    tmux new-session "cd '$original_dir' && exec \$SHELL"
+    task t
 }
-
-alias docker-nuke='docker stop $(docker ps -aq) 2>/dev/null; docker system prune -a --volumes -f'
 
 export VCPKG_ROOT=~/vcpkg
 export PATH=$VCPKG_ROOT:$PATH
-
-# --- Configuration ---
-# Set the target path where the compiled binary will be moved.
-TARGET_PATH="../ProjectTemplate/lib"
-
-# --- Function Definitions ---
-
-# Verifies a target path exists as a directory, creating it if necessary.
-# This is a helper function for buildhiro().
-verify_and_create_path() {
-    local path_to_verify="$1"
-    echo "Verifying output path: $path_to_verify"
-
-    # Check if the path exists.
-    if [ -e "$path_to_verify" ]; then
-        # The path exists. Check if it's a directory.
-        if [ -d "$path_to_verify" ]; then
-            echo "OK: '$path_to_verify' already exists and is a directory."
-        else
-            # It exists but is NOT a directory. Remove it and create a new directory.
-            echo "NOTICE: '$path_to_verify' exists but is not a directory."
-            echo "Action: Removing the existing item..."
-            rm -rf "$path_to_verify"
-            if [ $? -eq 0 ]; then
-                echo "Action: Creating a new directory at '$path_to_verify'..."
-                mkdir -p "$path_to_verify"
-                echo "SUCCESS: Directory '$path_to_verify' created."
-            else
-                echo "ERROR: Failed to remove '$path_to_verify'. Please check permissions."
-                return 1 # Use return instead of exit
-            fi
-        fi
-    else
-        # The path does not exist. Create it.
-        echo "NOTICE: '$path_to_verify' does not exist."
-        echo "Action: Creating directory..."
-        mkdir -p "$path_to_verify"
-        echo "SUCCESS: Directory '$path_to_verify' created."
-    fi
-}
-
-# Builds the 'hiro' plugin if the command is run from the 'server' directory.
-buildhiro() {
-    docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:latest build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
-
-    # Check if the docker build command was successful.
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Docker build failed. Aborting."
-        return 1 # Use return instead of exit
-    fi
-
-    echo "Build complete."
-
-    # Verify the output path exists before moving the file.
-    verify_and_create_path "$TARGET_PATH"
-
-    echo "Action: Moving build artifact to '$TARGET_PATH/'..."
-    mv ./hiro-linux-arm64.bin "$TARGET_PATH/"
-    echo "SUCCESS: Moved './hiro-linux-arm64.bin' to '$TARGET_PATH/'."
-
-}
-export PATH=$PATH:$HOME/go/bin 
-export PATH="$HOME/Developer/utils/bin:$PATH"
+export PATH=$PATH:$HOME/go/bin
 

@@ -1,0 +1,112 @@
+version: '3'
+
+vars:
+    REPO_PATH: '{{.REPO_PATH | default "/Users/andres/Developer/wt-hiro-gdk"}}'
+    TARGET_PATH: '{{.TARGET_PATH | default "../ProjectTemplate/lib"}}'
+    PLUGIN_BUILDER_VSN: '{{.PLUGIN_BUILDER_VSN | default "latest"}}'
+
+tasks:
+    # Git utilities
+    gu:
+        desc: 'Git update - fetch and pull latest changes'
+        cmds:
+            - git fetch
+            - git pull
+        preconditions:
+            - sh: git rev-parse --git-dir
+              msg: 'Not a git repository'
+
+    # Hiro build tasks
+    buildhiro:
+        desc: 'Build Hiro plugin for Linux ARM64 and copy to ProjectTemplate/lib'
+        dir: '{{.USER_WORKING_DIR}}'
+        cmds:
+            - echo 'Building Hiro plugin...'
+            - docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
+            - echo 'Build complete.'
+            - mkdir -p {{.TARGET_PATH}}
+            - mv ./hiro-linux-arm64.bin {{.TARGET_PATH}}/
+            - echo 'SUCCESS - Moved hiro-linux-arm64.bin to {{.TARGET_PATH}}/'
+        preconditions:
+            - sh: command -v docker
+              msg: 'Docker is not installed'
+
+    # New worktree workflow
+    nwt:
+        desc: 'Create new worktree, build Hiro, and start docker compose'
+        summary: |
+            Creates a new git worktree from main branch, builds the Hiro plugin,
+            copies it to ProjectTemplate/lib, and starts docker compose.
+            Usage: task nwt BRANCH=feature-name
+        cmds:
+            - cd {{.REPO_PATH}}/main && git fetch && git pull
+            - cd {{.REPO_PATH}}/main && git worktree add ../{{.BRANCH}} -b {{.BRANCH}} main
+            - cd {{.REPO_PATH}}/{{.BRANCH}}/server && docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
+            - mkdir -p {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate/lib
+            - cp {{.REPO_PATH}}/{{.BRANCH}}/server/hiro-linux-arm64.bin {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate/lib/
+            - cd {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate && docker compose up --build
+        requires:
+            vars: [BRANCH]
+        preconditions:
+            - sh: '[ -d "{{.REPO_PATH}}/main" ]'
+              msg: 'Repository main branch not found at {{.REPO_PATH}}/main'
+            - sh: command -v docker
+              msg: 'Docker is not installed'
+
+    # Tmux session opener
+    t:
+        desc: 'Open new tmux session in ~/Developer but keep current directory context'
+        cmds:
+            - tmux new-session "cd '{{.USER_WORKING_DIR}}' && exec $SHELL"
+        preconditions:
+            - sh: command -v tmux
+              msg: 'tmux is not installed'
+
+    # Docker cleanup
+    docker-nuke:
+        desc: 'Stop all containers and prune Docker system (removes everything)'
+        prompt: 'This will stop all containers and remove all Docker data. Continue?'
+        cmds:
+            - docker stop $(docker ps -aq) 2>/dev/null || true
+            - docker system prune -a --volumes -f
+
+    # Hiro worktree management helpers
+    list-worktrees:
+        desc: 'List all git worktrees in the Hiro repository'
+        dir: '{{.REPO_PATH}}/main'
+        cmds:
+            - git worktree list
+
+    remove-worktree:
+        desc: 'Remove a git worktree'
+        summary: |
+            Removes a git worktree and its associated branch.
+            Usage: task remove-worktree BRANCH=feature-name
+        dir: '{{.REPO_PATH}}/main'
+        cmds:
+            - git worktree remove ../{{.BRANCH}}
+            - git branch -D {{.BRANCH}}
+        requires:
+            vars: [BRANCH]
+        preconditions:
+            - sh: '[ -d "{{.REPO_PATH}}/{{.BRANCH}}" ]'
+              msg: 'Worktree {{.BRANCH}} does not exist'
+
+    # Quick navigation helpers
+    goto-hiro:
+        desc: 'Change to Hiro main directory'
+        cmds:
+            - cd {{.REPO_PATH}}/main && exec $SHELL
+
+    goto-worktree:
+        desc: 'Change to a specific Hiro worktree'
+        summary: |
+            Navigate to a specific worktree directory.
+            Usage: task goto-worktree BRANCH=feature-name
+        cmds:
+            - cd {{.REPO_PATH}}/{{.BRANCH}} && exec $SHELL
+        requires:
+            vars: [BRANCH]
+        preconditions:
+            - sh: '[ -d "{{.REPO_PATH}}/{{.BRANCH}}" ]'
+              msg: 'Worktree {{.BRANCH}} does not exist'

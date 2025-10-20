@@ -84,9 +84,28 @@ function smartAppSwitch(appName)
         return
     end
     
-    local windows = app:allWindows()
+    local allWindows = app:allWindows()
+    local windows = {}
+    for _, win in ipairs(allWindows) do
+        if win:isStandard() and win:isVisible() then
+            windows[#windows + 1] = win
+        end
+    end
+    print("App: " .. appName .. ", Window count: " .. #windows)
+    
     if #windows == 0 then
-        app:activate()
+        if appName == "Finder" then
+            print("Creating new Finder window")
+            hs.execute([[osascript -e 'tell application "Finder"
+                make new Finder window
+                set target of front window to home
+                activate
+            end tell']])
+            print("Output: " .. tostring(output))
+            print("Status: " .. tostring(status))
+        else
+            app:activate()
+        end
         return
     end
     
