@@ -132,6 +132,7 @@ export PATH="/Users/andres/flutter/bin:$PATH"
 #   task t              - Open tmux session
 #   task docker-nuke    - Clean up Docker
 #   task list-worktrees - List all worktrees
+#   v2mp3 file.mov      - Convert video to mp3 audio
 # Run 'task --list' to see all available tasks
 
 # Convenience aliases for common tasks
@@ -144,6 +145,14 @@ nwt() {
     task nwt BRANCH="$1"
 }
 
+cwt() {
+    task ewt BRANCH="$1"
+}
+
+v2mp3() {
+    task video-to-mp3 -- "$1"
+}
+
 t() {
     task t
 }
@@ -152,3 +161,11 @@ export VCPKG_ROOT=~/vcpkg
 export PATH=$VCPKG_ROOT:$PATH
 export PATH=$PATH:$HOME/go/bin
 
+export KUBECONFIG=/Users/andres/Developer/devops/user_access_config/kube/config
+export EGOS=$HOME/Developer/egos-2000
+export PATH=$PATH:$HOME/Developer/xpack-riscv-none-elf-gcc-14.2.0-3/bin
+# Created by `pipx` on 2026-01-13 12:52:31
+export PATH="$PATH:/Users/andres/.local/bin"
+
+# opencode
+export PATH=/Users/andres/.opencode/bin:$PATH

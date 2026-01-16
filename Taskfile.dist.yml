@@ -1,50 +1,82 @@
 version: '3'
 
 vars:
-    REPO_PATH: '{{.REPO_PATH | default "/Users/andres/Developer/wt-hiro-gdk"}}'
+    REPO_PATH: '{{.REPO_PATH | default "/Users/andres/Developer/hiro-gdk"}}'
     TARGET_PATH: '{{.TARGET_PATH | default "../ProjectTemplate/lib"}}'
-    PLUGIN_BUILDER_VSN: '{{.PLUGIN_BUILDER_VSN | default "latest"}}'
-
+    
 tasks:
     # Git utilities
     gu:
         desc: 'Git update - fetch and pull latest changes'
+        dir: '{{.USER_WORKING_DIR}}'
         cmds:
             - git fetch
             - git pull
         preconditions:
+            - sh: docker info > /dev/null 2>&1
+              msg: 'Docker is not running'
             - sh: git rev-parse --git-dir
               msg: 'Not a git repository'
 
-    # Hiro build tasks
-    buildhiro:
-        desc: 'Build Hiro plugin for Linux ARM64 and copy to ProjectTemplate/lib'
-        dir: '{{.USER_WORKING_DIR}}'
+    # New worktree workflow
+    nwt:
+        desc: 'Create new worktree, build Hiro, generate license, and start docker compose'
+        summary: |
+            Creates a new git worktree from main branch, builds the Hiro plugin,
+            copies it to ProjectTemplate/lib, generates a Hiro license, and starts docker compose.
+            Usage: task nwt BRANCH=feature-name (am- prefix will be added automatically to branch)
+            Note: Folder name uses the provided name, branch gets am- prefix
+        vars:
+            FOLDER_NAME:
+                sh: echo "{{.BRANCH}}" | sed 's/^am-//'
+            BRANCH_NAME:
+                sh: |
+                    if echo "{{.BRANCH}}" | grep -q '^am-'; then
+                        echo "{{.BRANCH}}"
+                    else
+                        echo "am-{{.BRANCH}}"
+                    fi
         cmds:
-            - echo 'Building Hiro plugin...'
-            - docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
-            - echo 'Build complete.'
-            - mkdir -p {{.TARGET_PATH}}
-            - mv ./hiro-linux-arm64.bin {{.TARGET_PATH}}/
-            - echo 'SUCCESS - Moved hiro-linux-arm64.bin to {{.TARGET_PATH}}/'
+            - cd {{.REPO_PATH}}/main && git fetch && git pull
+            - cd {{.REPO_PATH}}/main && git worktree add ../{{.FOLDER_NAME}} -b {{.BRANCH_NAME}} main
+            - cd {{.REPO_PATH}}/{{.FOLDER_NAME}}/server && docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
+            - mkdir -p {{.REPO_PATH}}/{{.FOLDER_NAME}}/ProjectTemplate/lib
+            - cp {{.REPO_PATH}}/{{.FOLDER_NAME}}/server/hiro-linux-arm64.bin {{.REPO_PATH}}/{{.FOLDER_NAME}}/ProjectTemplate/lib/
+            - task: project-template-license
+              vars:
+                FOLDER_NAME: '{{.FOLDER_NAME}}'
+            - docker rm -f game_backend_nakama game_backend_postgres 2>/dev/null || true
+            - cd {{.REPO_PATH}}/{{.FOLDER_NAME}} && exec $SHELL
+        requires:
+            vars: [BRANCH]
         preconditions:
+            - sh: '[ -d "{{.REPO_PATH}}/main" ]'
+              msg: 'Repository main branch not found at {{.REPO_PATH}}/main'
             - sh: command -v docker
               msg: 'Docker is not installed'
 
-    # New worktree workflow
-    nwt:
-        desc: 'Create new worktree, build Hiro, and start docker compose'
+    # Checkout existing remote branch as worktree
+    ewt:
+        desc: 'Checkout existing remote branch as worktree, build Hiro, and generate license'
         summary: |
-            Creates a new git worktree from main branch, builds the Hiro plugin,
-            copies it to ProjectTemplate/lib, and starts docker compose.
-            Usage: task nwt BRANCH=feature-name
+            Fetches latest from remote, creates a worktree for an existing remote branch,
+            builds the Hiro plugin, copies it to ProjectTemplate/lib, and generates a Hiro license.
+            Usage: task ewt BRANCH=am-feature-name
+            Note: Branch keeps initials prefix, but folder name strips it
+        vars:
+            FOLDER_NAME:
+                sh: echo "{{.BRANCH}}" | sed 's/^am-//'
         cmds:
-            - cd {{.REPO_PATH}}/main && git fetch && git pull
-            - cd {{.REPO_PATH}}/main && git worktree add ../{{.BRANCH}} -b {{.BRANCH}} main
-            - cd {{.REPO_PATH}}/{{.BRANCH}}/server && docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
-            - mkdir -p {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate/lib
-            - cp {{.REPO_PATH}}/{{.BRANCH}}/server/hiro-linux-arm64.bin {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate/lib/
-            - cd {{.REPO_PATH}}/{{.BRANCH}}/ProjectTemplate && docker compose up --build
+            - cd {{.REPO_PATH}}/main && git fetch
+            - cd {{.REPO_PATH}}/main && git worktree add ../{{.FOLDER_NAME}} {{.BRANCH}}
+            - cd {{.REPO_PATH}}/{{.FOLDER_NAME}}/server && docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:{{.PLUGIN_BUILDER_VSN}} build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin"
+            - mkdir -p {{.REPO_PATH}}/{{.FOLDER_NAME}}/ProjectTemplate/lib
+            - cp {{.REPO_PATH}}/{{.FOLDER_NAME}}/server/hiro-linux-arm64.bin {{.REPO_PATH}}/{{.FOLDER_NAME}}/ProjectTemplate/lib/
+            - task: project-template-license
+              vars:
+                FOLDER_NAME: '{{.FOLDER_NAME}}'
+            - docker rm -f game_backend_nakama game_backend_postgres 2>/dev/null || true
+            - cd {{.REPO_PATH}}/{{.FOLDER_NAME}} && exec $SHELL
         requires:
             vars: [BRANCH]
         preconditions:
@@ -81,16 +113,20 @@ tasks:
         desc: 'Remove a git worktree'
         summary: |
             Removes a git worktree and its associated branch.
-            Usage: task remove-worktree BRANCH=feature-name
+            Usage: task remove-worktree BRANCH=am-feature-name
+            Note: Provide the full branch name with am- prefix
+        vars:
+            FOLDER_NAME:
+                sh: echo "{{.BRANCH}}" | sed 's/^am-//'
         dir: '{{.REPO_PATH}}/main'
         cmds:
-            - git worktree remove ../{{.BRANCH}}
+            - git worktree remove ../{{.FOLDER_NAME}}
             - git branch -D {{.BRANCH}}
         requires:
             vars: [BRANCH]
         preconditions:
-            - sh: '[ -d "{{.REPO_PATH}}/{{.BRANCH}}" ]'
-              msg: 'Worktree {{.BRANCH}} does not exist'
+            - sh: '[ -d "{{.REPO_PATH}}/{{.FOLDER_NAME}}" ]'
+              msg: 'Worktree {{.FOLDER_NAME}} does not exist'
 
     # Quick navigation helpers
     goto-hiro:
@@ -102,11 +138,36 @@ tasks:
         desc: 'Change to a specific Hiro worktree'
         summary: |
             Navigate to a specific worktree directory.
-            Usage: task goto-worktree BRANCH=feature-name
+            Usage: task goto-worktree BRANCH=am-feature-name
+            Note: Provide the full branch name with am- prefix
+        vars:
+            FOLDER_NAME:
+                sh: echo "{{.BRANCH}}" | sed 's/^am-//'
         cmds:
-            - cd {{.REPO_PATH}}/{{.BRANCH}} && exec $SHELL
+            - cd {{.REPO_PATH}}/{{.FOLDER_NAME}} && exec $SHELL
         requires:
             vars: [BRANCH]
         preconditions:
-            - sh: '[ -d "{{.REPO_PATH}}/{{.BRANCH}}" ]'
-              msg: 'Worktree {{.BRANCH}} does not exist'
+            - sh: '[ -d "{{.REPO_PATH}}/{{.FOLDER_NAME}}" ]'
+              msg: 'Worktree {{.FOLDER_NAME}} does not exist'
+
+    # Media conversion
+    video-to-mp3:
+        desc: 'Convert video file to mp3 audio'
+        summary: |
+            Converts a video file to mp3 audio format using ffmpeg.
+            Audio is converted to mono, 16kHz sample rate, 64k bitrate.
+            Usage: task video-to-mp3 -- video-file.mov
+            Output will have the same name but with .mp3 extension
+        vars:
+            INPUT_FILE: '{{.USER_WORKING_DIR}}/{{.CLI_ARGS}}'
+            OUTPUT:
+                sh: echo "{{.USER_WORKING_DIR}}/{{.CLI_ARGS}}" | sed 's/\.[^.]*$/.mp3/'
+        cmds:
+            - ffmpeg -i "{{.INPUT_FILE}}" -vn -ac 1 -ar 16000 -ab 64k -f mp3 "{{.OUTPUT}}"
+            - echo "Converted {{.CLI_ARGS}} to {{.OUTPUT}}"
+        preconditions:
+            - sh: command -v ffmpeg
+              msg: 'ffmpeg is not installed'
+            - sh: '[ -f "{{.USER_WORKING_DIR}}/{{.CLI_ARGS}}" ]'
+              msg: 'File {{.CLI_ARGS}} does not exist in current directory'
