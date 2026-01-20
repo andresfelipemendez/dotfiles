@@ -169,3 +169,4 @@ export PATH="$PATH:/Users/andres/.local/bin"
 
 # opencode
 export PATH=/Users/andres/.opencode/bin:$PATH
+export XDG_CONFIG_HOME="$HOME/.config"
