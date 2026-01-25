@@ -14,7 +14,7 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfile
 |----------|----------|
 | **Core** | zsh, git, tmux, neovim, curl, htop, unzip, xclip, ripgrep |
 | **GitHub (latest)** | fzf, lazygit, fd, bat |
-| **Official repos** | Docker, 1Password, gcloud, kubectl |
+| **Official repos** | gh, Docker, 1Password, gcloud, kubectl |
 | **Shell** | Oh My Zsh |
 
 ## Requirements

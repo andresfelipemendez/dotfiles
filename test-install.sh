@@ -34,7 +34,7 @@ echo ""
 echo "[3/3] Verifying installations..."
 su - testuser -c "
     echo \"Checking installed tools:\"
-    for cmd in git zsh fzf lazygit fd bat docker gcloud kubectl 1password; do
+    for cmd in git zsh fzf lazygit fd bat gh docker gcloud kubectl 1password; do
         if command -v \$cmd &>/dev/null; then
             printf \"  %-12s ✓\\n\" \$cmd
         else

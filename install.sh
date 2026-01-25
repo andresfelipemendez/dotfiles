@@ -211,6 +211,16 @@ install_kubectl() {
     sudo apt-get install -y kubectl
 }
 
+install_gh() {
+    info "Installing GitHub CLI..."
+    fetch_gpg_key "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
+        "/usr/share/keyrings/githubcli-archive-keyring.gpg"
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+        sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    sudo apt-get update
+    sudo apt-get install -y gh
+}
+
 install_docker() {
     info "Installing Docker..."
 
@@ -301,6 +311,7 @@ main() {
 
     # Install from official repos
     info "Installing from official repos..."
+    check_and_install "gh" "install_gh"
     check_and_install "docker" "install_docker"
     check_and_install "1password" "install_1password"
     check_and_install "gcloud" "install_gcloud"
