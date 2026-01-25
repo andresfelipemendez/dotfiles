@@ -1,6 +1,44 @@
+# Dotfiles
+
+Bootstrap a new dev machine with a single command.
+
+## Install
+
 ```bash
-git clone https://github.com/MichaelAquilina/zsh-you-should-use.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/you-should-use
-git clone https://github.com/fdellwing/zsh-bat.git $ZSH_CUSTOM/plugins/zsh-bat
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfiles/main/install.sh)"
+```
+
+## What Gets Installed
+
+| Category | Packages |
+|----------|----------|
+| **Core** | zsh, git, tmux, neovim, curl, htop, unzip, xclip, ripgrep |
+| **GitHub (latest)** | fzf, lazygit, fd, bat |
+| **Official repos** | Docker, 1Password, gcloud, kubectl |
+| **Shell** | Oh My Zsh |
+
+## Requirements
+
+- Debian/Ubuntu (x86_64 or arm64)
+- sudo access
+
+## Post-Install
+
+```bash
+chsh -s $(which zsh)  # Set zsh as default
+# Log out and back in
+```
+
+## Symlinks
+
+```
+~/.zshrc           → ~/dotfiles/.zshrc
+~/.gitconfig       → ~/dotfiles/.gitconfig
+~/.config/lazygit  → ~/dotfiles/.config/lazygit
+```
+
+## Re-run / Update
+
+```bash
+cd ~/dotfiles && ./install.sh
 ```

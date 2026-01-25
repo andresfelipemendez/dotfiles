@@ -1,5 +1,5 @@
 # If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+export PATH="$HOME/.local/bin:$PATH"
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -70,7 +70,7 @@ DISABLE_UNTRACKED_FILES_DIRTY="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git fzf)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -104,6 +104,28 @@ alias zc="subl ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 source <(fzf --zsh)
+
+# fzf configuration
+export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --inline-info"
+export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow --exclude .git"
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=header,grid --line-range :300 {}'"
+export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window down:3:hidden --bind '?:toggle-preview'"
+
+# Custom fzf keybindings
+bindkey '^T' fzf-file-widget
+bindkey '^R' fzf-history-widget
+bindkey '^I' fzf-completion
+
+# fd and bat aliases
+alias cat='bat --pager=never --style=plain'
+alias find='fd'
+alias tree='fd --tree'
+
+# Quick file search with fzf + fd
+ff() {
+    fd --type f --hidden --follow --exclude .git | fzf --preview 'bat --color=always --style=header,grid --line-range :300 {}' | xargs -r nvim
+}
 
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/andres/.lmstudio/bin"
