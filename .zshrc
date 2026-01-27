@@ -70,7 +70,7 @@ DISABLE_UNTRACKED_FILES_DIRTY="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git fzf)
+plugins=(git fzf you-should-use zsh-bat zsh-autosuggestions zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -192,3 +192,6 @@ export PATH="$PATH:/Users/andres/.local/bin"
 # opencode
 export PATH=/Users/andres/.opencode/bin:$PATH
 export XDG_CONFIG_HOME="$HOME/.config"
+if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
+    tmux new -A -s main
+fi

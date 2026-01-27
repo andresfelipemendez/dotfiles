@@ -1,7 +1,7 @@
 local audiodevice = require("hs.audiodevice")
 
 local devices = {
-    f16 = "CalDigit TS4 Audio - Rear",
+    f16 = "Vocaster One USB",
     f17 = "MacBook Pro Speakers",
     f18 = "External Headphones", 
 }

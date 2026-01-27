@@ -40,3 +40,6 @@
 
 [url "ssh://git@github.com/"]
     insteadOf = https://github.com/
+[gitbutler]
+	aiModelProvider = anthropic
+	aiAnthropicKeyOption = butlerAPI

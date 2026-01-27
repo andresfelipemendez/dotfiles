@@ -50,4 +50,6 @@ if [ "$OS" = "Darwin" ]; then
 fi
 create_symlink ~/dotfiles/.zshrc ~/.zshrc
 create_symlink ~/dotfiles/.gitconfig ~/.gitconfig
+create_symlink ~/dotfiles/.tmux.conf ~/.tmux.conf
 create_symlink ~/dotfiles/.config/lazygit ~/.config/lazygit
+create_symlink ~/dotfiles/.config/ghostty ~/.config/ghostty
