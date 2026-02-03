@@ -56,24 +56,14 @@ detect_os() {
     esac
 }
 
-detect_arch() {
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64)
-            ARCH_SUFFIX="amd64"
-            ARCH_MUSL="x86_64-unknown-linux-musl"
-            ARCH_LINUX="Linux_x86_64"
-            ;;
-        aarch64|arm64)
-            ARCH_SUFFIX="arm64"
-            ARCH_MUSL="aarch64-unknown-linux-musl"
-            ARCH_LINUX="Linux_arm64"
-            ;;
-        *)
-            error "Unsupported architecture: $ARCH"
-            exit 1
-            ;;
-    esac
+# Compare two semantic versions, returns 0 if $1 > $2
+version_gt() {
+    local v1="$1" v2="$2"
+    # Strip leading 'v' if present
+    v1="${v1#v}"
+    v2="${v2#v}"
+    # Use sort -V to compare versions
+    [[ "$(printf '%s\n%s' "$v1" "$v2" | sort -V | tail -1)" != "$v2" ]]
 }
 
 fetch_gpg_key() {
@@ -93,33 +83,6 @@ fetch_gpg_key() {
     fi
 
     sudo gpg --batch --yes --dearmor -o "$output" < "$temp_key"
-}
-
-get_github_version() {
-    local repo="$1"
-    local version
-
-    version=$(curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | grep -Po '"tag_name": "v?\K[^"]*' || true)
-
-    if [[ -z "$version" ]]; then
-        error "Failed to fetch latest version for $repo (GitHub API may be rate-limited)"
-        return 1
-    fi
-
-    echo "$version"
-}
-
-get_kubectl_version() {
-    local version
-    version=$(curl -fsSL "https://dl.k8s.io/release/stable.txt" || true)
-
-    if [[ -z "$version" || ! "$version" =~ ^v[0-9]+\.[0-9]+ ]]; then
-        error "Failed to fetch latest kubectl version, defaulting to v1.31"
-        echo "v1.31"
-        return 0
-    fi
-
-    echo "$version" | grep -Po 'v[0-9]+\.[0-9]+'
 }
 
 check_and_install() {
@@ -178,42 +141,6 @@ install_1password_linux() {
     sudo apt-get install -y 1password 1password-cli
 }
 
-install_lazygit_linux() {
-    info "Installing lazygit..."
-    local version
-    version=$(get_github_version "jesseduffield/lazygit") || return 1
-    curl -fsSL -o "$TEMP_DIR/lazygit.tar.gz" "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${version}_${ARCH_LINUX}.tar.gz"
-    tar xf "$TEMP_DIR/lazygit.tar.gz" -C "$TEMP_DIR" lazygit
-    sudo install "$TEMP_DIR/lazygit" /usr/local/bin
-}
-
-install_fd_linux() {
-    info "Installing fd-find..."
-    local version
-    version=$(get_github_version "sharkdp/fd") || return 1
-    curl -fsSL -o "$TEMP_DIR/fd.tar.gz" "https://github.com/sharkdp/fd/releases/latest/download/fd-v${version}-${ARCH_MUSL}.tar.gz"
-    tar xf "$TEMP_DIR/fd.tar.gz" -C "$TEMP_DIR" "fd-v${version}-${ARCH_MUSL}/fd"
-    sudo install "$TEMP_DIR/fd-v${version}-${ARCH_MUSL}/fd" /usr/local/bin/fd
-}
-
-install_bat_linux() {
-    info "Installing bat..."
-    local version
-    version=$(get_github_version "sharkdp/bat") || return 1
-    curl -fsSL -o "$TEMP_DIR/bat.tar.gz" "https://github.com/sharkdp/bat/releases/latest/download/bat-v${version}-${ARCH_MUSL}.tar.gz"
-    tar xf "$TEMP_DIR/bat.tar.gz" -C "$TEMP_DIR" "bat-v${version}-${ARCH_MUSL}/bat"
-    sudo install "$TEMP_DIR/bat-v${version}-${ARCH_MUSL}/bat" /usr/local/bin/bat
-}
-
-install_fzf_linux() {
-    info "Installing fzf..."
-    local version
-    version=$(get_github_version "junegunn/fzf") || return 1
-    curl -fsSL -o "$TEMP_DIR/fzf.tar.gz" "https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-linux_${ARCH_SUFFIX}.tar.gz"
-    tar xf "$TEMP_DIR/fzf.tar.gz" -C "$TEMP_DIR" fzf
-    sudo install "$TEMP_DIR/fzf" /usr/local/bin/fzf
-}
-
 install_gcloud_linux() {
     info "Installing Google Cloud SDK..."
     fetch_gpg_key "https://packages.cloud.google.com/apt/doc/apt-key.gpg" \
@@ -224,28 +151,97 @@ install_gcloud_linux() {
     sudo apt-get install -y google-cloud-cli
 }
 
-install_kubectl_linux() {
-    info "Installing kubectl..."
-    local k8s_version
-    k8s_version=$(get_kubectl_version)
-    info "Using Kubernetes version: $k8s_version"
+install_nix() {
+    if command -v nix &>/dev/null; then
+        info "Nix is already installed"
+    else
+        info "Installing Nix package manager..."
+        sh <(curl -L https://nixos.org/nix/install) --daemon --yes
 
-    fetch_gpg_key "https://pkgs.k8s.io/core:/stable:/${k8s_version}/deb/Release.key" \
-        "/usr/share/keyrings/kubernetes-apt-keyring.gpg"
-    echo "deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${k8s_version}/deb/ /" | \
-        sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
-    sudo apt-get update
-    sudo apt-get install -y kubectl
+        # Source nix for current session
+        if [[ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]]; then
+            . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+        fi
+    fi
+
+    # Enable experimental features (required for nix profile commands)
+    local nix_conf_dir="/etc/nix"
+    local nix_conf="$nix_conf_dir/nix.conf"
+    if ! grep -q "experimental-features" "$nix_conf" 2>/dev/null; then
+        info "Enabling Nix experimental features..."
+        echo "experimental-features = nix-command flakes" | sudo tee -a "$nix_conf" >/dev/null
+    fi
 }
 
-install_gh_linux() {
-    info "Installing GitHub CLI..."
-    fetch_gpg_key "https://cli.github.com/packages/githubcli-archive-keyring.gpg" \
-        "/usr/share/keyrings/githubcli-archive-keyring.gpg"
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-        sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-    sudo apt-get update
-    sudo apt-get install -y gh
+install_nix_packages() {
+    info "Installing packages via Nix..."
+
+    # Ensure nix is installed
+    install_nix
+
+    # Source nix if not already in path
+    if ! command -v nix &>/dev/null; then
+        if [[ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]]; then
+            . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+        fi
+    fi
+
+    # Install packages via nix profile
+    local nix_packages=(
+        "fzf"
+        "lazygit"
+        "fd"
+        "bat"
+        "gh"
+        "kubectl"
+        "ripgrep"
+        "ghostty"
+    )
+
+    for pkg in "${nix_packages[@]}"; do
+        if command -v "$pkg" &>/dev/null; then
+            info "$pkg is already installed"
+        else
+            info "Installing $pkg via Nix..."
+            nix profile add "nixpkgs#$pkg"
+        fi
+    done
+}
+
+install_neovim_nix() {
+    info "Checking neovim version..."
+
+    # Ensure nix is available
+    if ! command -v nix &>/dev/null; then
+        if [[ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]]; then
+            . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+        fi
+    fi
+
+    # Get available version from nixpkgs
+    local nix_version
+    nix_version=$(nix eval --raw nixpkgs#neovim.version 2>/dev/null || echo "")
+    if [[ -z "$nix_version" ]]; then
+        error "Failed to get neovim version from nixpkgs"
+        return 1
+    fi
+
+    # Get current installed version (if any)
+    local current_version=""
+    if command -v nvim &>/dev/null; then
+        current_version=$(nvim --version | head -1 | grep -oP 'v?\K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+    fi
+
+    if [[ -z "$current_version" ]]; then
+        info "neovim not installed, installing v$nix_version via Nix..."
+        nix profile add nixpkgs#neovim
+    elif version_gt "$nix_version" "$current_version"; then
+        info "neovim upgrade available: v$current_version -> v$nix_version"
+        info "Installing neovim v$nix_version via Nix..."
+        nix profile add nixpkgs#neovim
+    else
+        info "neovim v$current_version is up to date (nixpkgs has v$nix_version)"
+    fi
 }
 
 install_docker_linux() {
@@ -345,9 +341,8 @@ main() {
     info "  Dotfiles Bootstrap"
     info "=========================================="
 
-    # Validate OS and detect architecture
+    # Validate OS
     detect_os
-    detect_arch
 
     # Setup temp directory
     setup_temp
@@ -419,32 +414,24 @@ main() {
         cd "$DOTFILES_DIR"
         chmod +x install.sh symlink.sh
 
-        # Install core packages
-        info "Installing core packages..."
-        packages="zsh tmux neovim xclip htop unzip"
-
-        if apt-cache show ripgrep &>/dev/null; then
-            packages="$packages ripgrep"
-        fi
-
+        # Install core packages via apt
+        info "Installing core packages via apt..."
+        packages="zsh tmux xclip htop unzip"
         for package in $packages; do
             check_and_install "$package" ""
         done
 
-        # Install tools from GitHub (latest versions)
-        info "Installing tools from GitHub..."
-        check_and_install "fzf" "install_fzf_linux"
-        check_and_install "lazygit" "install_lazygit_linux"
-        check_and_install "fd" "install_fd_linux"
-        check_and_install "bat" "install_bat_linux"
+        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, ghostty)
+        install_nix_packages
 
-        # Install from official repos
+        # Install neovim via Nix (with version check)
+        install_neovim_nix
+
+        # Install from official repos (these need special setup)
         info "Installing from official repos..."
-        check_and_install "gh" "install_gh_linux"
         check_and_install "docker" "install_docker_linux"
         check_and_install "1password" "install_1password_linux"
         check_and_install "gcloud" "install_gcloud_linux"
-        check_and_install "kubectl" "install_kubectl_linux"
     fi
 
     # Install Oh My Zsh (cross-platform)
