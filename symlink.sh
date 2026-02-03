@@ -53,3 +53,4 @@ create_symlink ~/dotfiles/.gitconfig ~/.gitconfig
 create_symlink ~/dotfiles/.tmux.conf ~/.tmux.conf
 create_symlink ~/dotfiles/.config/lazygit ~/.config/lazygit
 create_symlink ~/dotfiles/.config/ghostty ~/.config/ghostty
+create_symlink ~/dotfiles/.config/nvim ~/.config/nvim
