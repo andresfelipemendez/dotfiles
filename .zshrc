@@ -181,9 +181,12 @@ t() {
 
 export VCPKG_ROOT=~/vcpkg
 export PATH=$VCPKG_ROOT:$PATH
-export PATH=$PATH:$HOME/go/bin
+# Go and Zig paths
+export PATH="/usr/local/go/bin:$PATH"
+export PATH="$HOME/go/bin:$PATH"
+# Zig is already in ~/.local/bin which is added at the top
 
-export KUBECONFIG=/Users/andres/Developer/devops/user_access_config/kube/config
+export KUBECONFIG=$HOME/.kube/config
 export EGOS=$HOME/Developer/egos-2000
 export PATH=$PATH:$HOME/Developer/xpack-riscv-none-elf-gcc-14.2.0-3/bin
 # Created by `pipx` on 2026-01-13 12:52:31

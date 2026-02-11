@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Bootstrap a new dev machine with a single command:
-#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfiles/main/install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfiles/main/install.sh)"
 #
 
 set -eo pipefail
@@ -198,9 +198,14 @@ install_nix_packages() {
         "ghostty"
     )
 
+    # Get list of installed nix packages once
+    local installed_nix_pkgs
+    installed_nix_pkgs=$(nix profile list 2>/dev/null || echo "")
+
     for pkg in "${nix_packages[@]}"; do
-        if command -v "$pkg" &>/dev/null; then
-            info "$pkg is already installed"
+        # Check if already installed via nix profile (not system package)
+        if echo "$installed_nix_pkgs" | grep -q "legacyPackages.*\.$pkg\$"; then
+            info "$pkg is already installed via Nix"
         else
             info "Installing $pkg via Nix..."
             nix profile add "nixpkgs#$pkg"

@@ -5,7 +5,7 @@ Bootstrap a new dev machine with a single command.
 ## Install
 
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfiles/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfiles/main/install.sh)"
 ```
 
 ## What Gets Installed
