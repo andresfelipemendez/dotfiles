@@ -151,3 +151,7 @@ end)
 hs.hotkey.bind(hyper, "r", hs.reload)
 hs.hotkey.bind(hyper, "c", hs.toggleConsole)
 
+-- Quick paste shortcuts
+hs.hotkey.bind({}, "f14", function() hs.eventtap.keyStrokes("1143845995") end)
+hs.hotkey.bind({}, "f15", function() hs.eventtap.keyStrokes("3150730810") end)
+

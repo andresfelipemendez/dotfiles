@@ -124,7 +124,7 @@ alias find='fd'
 alias tree='fd --tree'
 
 # Quick file search with fzf + fd
-ff() {
+function ff() {
     fd --type f --hidden --follow --exclude .git | fzf --preview 'bat --color=always --style=header,grid --line-range :300 {}' | xargs -r nvim
 }
 
@@ -150,7 +150,8 @@ export PATH="/Users/andres/flutter/bin:$PATH"
 HIRO_REPO="${HIRO_REPO:-$HOME/Developer/hiro-gdk}"
 
 # Git update - fetch and pull latest changes
-gu() {
+unalias gu 2>/dev/null
+function gu() {
     if ! git rev-parse --git-dir >/dev/null 2>&1; then
         echo "Not a git repository"; return 1
     fi
@@ -159,7 +160,7 @@ gu() {
 
 # Create new worktree from main branch
 # Usage: nwt feature-name (am- prefix added to branch automatically)
-nwt() {
+function nwt() {
     if [[ -z "$1" ]]; then
         echo "Usage: nwt <branch-name>"; return 1
     fi
@@ -176,7 +177,7 @@ nwt() {
 
 # Checkout existing remote branch as worktree, build Hiro, and generate license
 # Usage: cwt am-feature-name
-cwt() {
+function cwt() {
     if [[ -z "$1" ]]; then
         echo "Usage: cwt <branch-name>"; return 1
     fi
@@ -200,7 +201,7 @@ cwt() {
 }
 
 # Open new tmux session keeping current directory
-t() {
+function t() {
     if ! command -v tmux >/dev/null 2>&1; then
         echo "tmux is not installed"; return 1
     fi
@@ -208,7 +209,7 @@ t() {
 }
 
 # Stop all containers and prune Docker system
-docker-nuke() {
+function docker-nuke() {
     echo "This will stop all containers and remove all Docker data."
     read -q "REPLY?Continue? [y/N] " || { echo; return 1; }
     echo
@@ -217,13 +218,13 @@ docker-nuke() {
 }
 
 # List all git worktrees in the Hiro repository
-list-worktrees() {
+function list-worktrees() {
     (cd "$HIRO_REPO/main" && git worktree list)
 }
 
 # Remove a git worktree and its branch
 # Usage: remove-worktree am-feature-name
-remove-worktree() {
+function remove-worktree() {
     if [[ -z "$1" ]]; then
         echo "Usage: remove-worktree <branch-name>"; return 1
     fi
@@ -236,13 +237,13 @@ remove-worktree() {
 }
 
 # Navigate to Hiro main directory
-gdk() {
+function gdk() {
     cd "$HIRO_REPO/main"
 }
 
 # Navigate to a specific Hiro worktree
 # Usage: goto-worktree am-feature-name
-goto-worktree() {
+function goto-worktree() {
     if [[ -z "$1" ]]; then
         echo "Usage: goto-worktree <branch-name>"; return 1
     fi
@@ -255,7 +256,7 @@ goto-worktree() {
 
 # Convert video file to mp3 audio
 # Usage: v2mp3 video-file.mov
-v2mp3() {
+function v2mp3() {
     if [[ -z "$1" ]]; then
         echo "Usage: v2mp3 <video-file>"; return 1
     fi

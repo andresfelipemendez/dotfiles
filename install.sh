@@ -385,6 +385,7 @@ main() {
         check_and_install "bat" ""
         check_and_install "gh" ""
         check_and_install "kubectl" ""
+        check_and_install "openjdk@17" ""
 
         # Install cask applications
         info "Installing applications..."
