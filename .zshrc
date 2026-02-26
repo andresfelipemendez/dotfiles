@@ -1,5 +1,6 @@
 # If you come from bash you might have to change your $PATH.
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -145,38 +146,129 @@ export PATH="/opt/homebrew/sbin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 export PATH="/Users/andres/flutter/bin:$PATH"
 
-# Task.dev - System-wide task runner
-# Taskfile.dist.yml is located at ~/Taskfile.dist.yml
-# Common tasks:
-#   task gu             - Git update (fetch and pull)
-#   task buildhiro      - Build Hiro plugin
-#   task nwt BRANCH=X   - Create new worktree and build
-#   task t              - Open tmux session
-#   task docker-nuke    - Clean up Docker
-#   task list-worktrees - List all worktrees
-#   v2mp3 file.mov      - Convert video to mp3 audio
-# Run 'task --list' to see all available tasks
+# Hiro GDK configuration
+HIRO_REPO="${HIRO_REPO:-$HOME/Developer/hiro-gdk}"
 
-# Convenience aliases for common tasks
-alias gu='task gu'
-alias buildhiro='task buildhiro'
-alias docker-nuke='task docker-nuke'
+# Git update - fetch and pull latest changes
+gu() {
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        echo "Not a git repository"; return 1
+    fi
+    git fetch && git pull
+}
 
-# Wrapper functions for tasks that need parameters
+# Create new worktree from main branch
+# Usage: nwt feature-name (am- prefix added to branch automatically)
 nwt() {
-    task nwt BRANCH="$1"
+    if [[ -z "$1" ]]; then
+        echo "Usage: nwt <branch-name>"; return 1
+    fi
+    if [[ ! -d "$HIRO_REPO/main" ]]; then
+        echo "Repository main branch not found at $HIRO_REPO/main"; return 1
+    fi
+    local folder="${1#am-}"
+    local branch="$1"
+    [[ "$branch" != am-* ]] && branch="am-$branch"
+    (cd "$HIRO_REPO/main" && git fetch && git pull) \
+        && (cd "$HIRO_REPO/main" && git worktree add "../$folder" -b "$branch" main) \
+        && cd "$HIRO_REPO/$folder"
 }
 
+# Checkout existing remote branch as worktree, build Hiro, and generate license
+# Usage: cwt am-feature-name
 cwt() {
-    task ewt BRANCH="$1"
+    if [[ -z "$1" ]]; then
+        echo "Usage: cwt <branch-name>"; return 1
+    fi
+    if [[ ! -d "$HIRO_REPO/main" ]]; then
+        echo "Repository main branch not found at $HIRO_REPO/main"; return 1
+    fi
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Docker is not installed"; return 1
+    fi
+    local folder="${1#am-}"
+    local branch="$1"
+    local plugin_vsn
+    plugin_vsn=$(cd "$HIRO_REPO/main" && task get-nakama-version 2>/dev/null || echo "3.35.1")
+    (cd "$HIRO_REPO/main" && git fetch) \
+        && (cd "$HIRO_REPO/main" && git worktree add "../$folder" "$branch") \
+        && (cd "$HIRO_REPO/$folder/server" && docker run --platform "linux/arm64" --rm -w "/server" -v "$(pwd):/server" heroiclabs/nakama-pluginbuilder:"$plugin_vsn" build --buildmode=plugin -trimpath -o "./hiro-linux-arm64.bin") \
+        && mkdir -p "$HIRO_REPO/$folder/ProjectTemplate/lib" \
+        && cp "$HIRO_REPO/$folder/server/hiro-linux-arm64.bin" "$HIRO_REPO/$folder/ProjectTemplate/lib/" \
+        && docker rm -f game_backend_nakama game_backend_postgres 2>/dev/null || true
+    cd "$HIRO_REPO/$folder"
 }
 
-v2mp3() {
-    task video-to-mp3 -- "$1"
-}
-
+# Open new tmux session keeping current directory
 t() {
-    task t
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo "tmux is not installed"; return 1
+    fi
+    tmux new-session "cd '$PWD' && exec $SHELL"
+}
+
+# Stop all containers and prune Docker system
+docker-nuke() {
+    echo "This will stop all containers and remove all Docker data."
+    read -q "REPLY?Continue? [y/N] " || { echo; return 1; }
+    echo
+    docker stop $(docker ps -aq) 2>/dev/null || true
+    docker system prune -a --volumes -f
+}
+
+# List all git worktrees in the Hiro repository
+list-worktrees() {
+    (cd "$HIRO_REPO/main" && git worktree list)
+}
+
+# Remove a git worktree and its branch
+# Usage: remove-worktree am-feature-name
+remove-worktree() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: remove-worktree <branch-name>"; return 1
+    fi
+    local folder="${1#am-}"
+    local branch="$1"
+    if [[ ! -d "$HIRO_REPO/$folder" ]]; then
+        echo "Worktree $folder does not exist"; return 1
+    fi
+    (cd "$HIRO_REPO/main" && git worktree remove "../$folder" && git branch -D "$branch")
+}
+
+# Navigate to Hiro main directory
+gdk() {
+    cd "$HIRO_REPO/main"
+}
+
+# Navigate to a specific Hiro worktree
+# Usage: goto-worktree am-feature-name
+goto-worktree() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: goto-worktree <branch-name>"; return 1
+    fi
+    local folder="${1#am-}"
+    if [[ ! -d "$HIRO_REPO/$folder" ]]; then
+        echo "Worktree $folder does not exist"; return 1
+    fi
+    cd "$HIRO_REPO/$folder"
+}
+
+# Convert video file to mp3 audio
+# Usage: v2mp3 video-file.mov
+v2mp3() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: v2mp3 <video-file>"; return 1
+    fi
+    if ! command -v ffmpeg >/dev/null 2>&1; then
+        echo "ffmpeg is not installed"; return 1
+    fi
+    local input="$1"
+    local output="${input%.*}.mp3"
+    if [[ ! -f "$input" ]]; then
+        echo "File $input does not exist"; return 1
+    fi
+    ffmpeg -i "$input" -vn -ac 1 -ar 16000 -ab 64k -f mp3 "$output" \
+        && echo "Converted $input to $output"
 }
 
 export VCPKG_ROOT=~/vcpkg
