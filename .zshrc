@@ -1,4 +1,5 @@
 # If you come from bash you might have to change your $PATH.
+eval "$(/opt/homebrew/bin/brew shellenv)"
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"
 
@@ -142,8 +143,6 @@ else
     echo "gcloud is not installed or not in PATH"
 fi
 
-export PATH="/opt/homebrew/sbin:$PATH"
-export PATH="/opt/homebrew/bin:$PATH"
 export PATH="/Users/andres/flutter/bin:$PATH"
 
 # Hiro GDK configuration
