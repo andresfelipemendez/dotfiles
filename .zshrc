@@ -287,6 +287,8 @@ export PATH="$PATH:/Users/andres/.local/bin"
 # opencode
 export PATH=/Users/andres/.opencode/bin:$PATH
 export XDG_CONFIG_HOME="$HOME/.config"
+eval "$(zoxide init zsh)"
+
 if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
     tmux new -A -s main
 fi
