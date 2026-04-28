@@ -289,6 +289,10 @@ export PATH=/Users/andres/.opencode/bin:$PATH
 export XDG_CONFIG_HOME="$HOME/.config"
 eval "$(zoxide init zsh)"
 
-if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
-    tmux new -A -s main
-fi
+# pnpm
+export PNPM_HOME="/Users/andres/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end

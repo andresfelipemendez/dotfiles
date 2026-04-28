@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/andres/Developer/wt-hiro-gdk/**)",
+      "Read(//Users/andres/Developer/hiro-gdk/fix-progress-achievements-outside-duration-period/**)",
+      "Bash(sh -c 'git remote get-url origin 2>/dev/null | grep -q \"\"hiro-gdk\"\"; echo \"\"Exit code: $?\"\"')",
+      "Bash(task --version:*)",
+      "Bash(task buildhiro:*)",
+      "Read(//Users/andres/Developer/customers repos/goslinkygo-server/**)",
+      "Bash(task:*)",
+      "Read(//Users/andres/Library/LaunchAgents/**)",
+      "Read(//Users/andres/developer/transcribe/**)",
+      "Bash(taskfile-help)",
+      "Bash(taskfile-help namespace:*)",
+      "Bash(ls:*)",
+      "Bash(ln:*)",
+      "Bash(taskfile-help:*)",
+      "Bash(pipx list:*)",
+      "Bash(yq:*)",
+      "Bash(pip3 install:*)",
+      "Bash(./install.sh:*)",
+      "mcp__plugin_context7_context7__query-docs"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

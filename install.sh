@@ -86,21 +86,22 @@ fetch_gpg_key() {
 }
 
 check_and_install() {
-    local package_name="$1"
+    local cmd_name="$1"
     local install_function="$2"
+    local pkg_name="${3:-$cmd_name}"
 
-    if command -v "$package_name" &>/dev/null; then
-        info "$package_name is already installed"
-    elif [[ "$OS" == "Linux" ]] && dpkg -s "$package_name" &>/dev/null; then
-        info "$package_name is already installed"
+    if command -v "$cmd_name" &>/dev/null; then
+        info "$cmd_name is already installed"
+    elif [[ "$OS" == "Linux" ]] && dpkg -s "$pkg_name" &>/dev/null; then
+        info "$pkg_name is already installed"
     else
-        info "$package_name not found, installing..."
+        info "$cmd_name not found, installing..."
         if [[ -n "$install_function" ]] && type "$install_function" &>/dev/null; then
             $install_function
         elif [[ "$OS" == "Darwin" ]]; then
-            brew install "$package_name"
+            brew install "$pkg_name"
         else
-            sudo apt-get install -y "$package_name"
+            sudo apt-get install -y "$pkg_name"
         fi
     fi
 }
@@ -376,7 +377,7 @@ main() {
         info "Installing core packages..."
         check_and_install "zsh" ""
         check_and_install "tmux" ""
-        check_and_install "neovim" ""
+        check_and_install "nvim" "" "neovim"
         check_and_install "htop" ""
         check_and_install "ripgrep" ""
         check_and_install "fzf" ""
@@ -445,6 +446,14 @@ main() {
 
     # Install zsh plugins (cross-platform)
     install_zsh_plugins
+
+    # Install TPM (Tmux Plugin Manager)
+    if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
+        info "Installing TPM (Tmux Plugin Manager)..."
+        git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+    else
+        info "TPM is already installed"
+    fi
 
     # Create symlinks
     info "Creating symlinks..."
