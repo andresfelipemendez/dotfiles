@@ -12,6 +12,10 @@ set -eo pipefail
 DOTFILES_REPO="https://github.com/andresfelipemendez/dotfiles.git"
 DOTFILES_DIR="$HOME/dotfiles"
 OS="$(uname -s)"
+IS_WSL=0
+if [[ "$OS" == "Linux" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+    IS_WSL=1
+fi
 
 # =============================================================================
 # Helper functions
@@ -47,7 +51,11 @@ detect_os() {
                 error "This script only supports Debian/Ubuntu-based systems on Linux"
                 exit 1
             fi
-            info "Detected: Debian/Ubuntu Linux"
+            if [[ "$IS_WSL" -eq 1 ]]; then
+                info "Detected: Debian/Ubuntu Linux (WSL)"
+            else
+                info "Detected: Debian/Ubuntu Linux"
+            fi
             ;;
         *)
             error "Unsupported operating system: $OS"
@@ -196,8 +204,11 @@ install_nix_packages() {
         "gh"
         "kubectl"
         "ripgrep"
-        "ghostty"
     )
+    # Ghostty needs a display server — skip on WSL
+    if [[ "$IS_WSL" -ne 1 ]]; then
+        nix_packages+=("ghostty")
+    fi
 
     # Get list of installed nix packages once
     local installed_nix_pkgs
@@ -423,7 +434,12 @@ main() {
 
         # Install core packages via apt
         info "Installing core packages via apt..."
-        packages="zsh tmux xclip htop unzip"
+        if [[ "$IS_WSL" -eq 1 ]]; then
+            # No xclip on WSL — clipboard goes through clip.exe / powershell
+            packages="zsh tmux htop unzip"
+        else
+            packages="zsh tmux xclip htop unzip"
+        fi
         for package in $packages; do
             check_and_install "$package" ""
         done
@@ -436,8 +452,25 @@ main() {
 
         # Install from official repos (these need special setup)
         info "Installing from official repos..."
-        check_and_install "docker" "install_docker_linux"
-        check_and_install "1password" "install_1password_linux"
+        if [[ "$IS_WSL" -eq 1 ]]; then
+            info "Skipping Docker install on WSL (use Docker Desktop's WSL integration)"
+            info "Skipping 1Password Desktop on WSL (no GUI)"
+            # Install just the 1Password CLI on WSL
+            if ! command -v op &>/dev/null; then
+                info "Installing 1Password CLI..."
+                fetch_gpg_key "https://downloads.1password.com/linux/keys/1password.asc" \
+                    "/usr/share/keyrings/1password-archive-keyring.gpg"
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+                    sudo tee /etc/apt/sources.list.d/1password.list >/dev/null
+                sudo apt-get update
+                sudo apt-get install -y 1password-cli
+            else
+                info "1password-cli is already installed"
+            fi
+        else
+            check_and_install "docker" "install_docker_linux"
+            check_and_install "1password" "install_1password_linux"
+        fi
         check_and_install "gcloud" "install_gcloud_linux"
     fi
 
@@ -467,6 +500,13 @@ main() {
     if [[ "$OS" == "Darwin" ]]; then
         info "  1. chsh -s /bin/zsh         # Set zsh as default shell (if not already)"
         info "  2. Restart your terminal"
+    elif [[ "$IS_WSL" -eq 1 ]]; then
+        info "  1. chsh -s \$(which zsh)         # Set zsh as default shell"
+        info "  2. Add to /etc/wsl.conf to stop Windows PATH leakage:"
+        info "       [interop]"
+        info "       appendWindowsPath = false"
+        info "  3. From PowerShell: wsl --shutdown    # Apply wsl.conf"
+        info "  4. Reopen WSL                          # zsh + clean PATH"
     else
         info "  1. chsh -s \$(which zsh)   # Set zsh as default shell"
         info "  2. Log out and back in     # Required for zsh + docker group"

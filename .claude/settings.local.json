@@ -19,7 +19,16 @@
       "Bash(yq:*)",
       "Bash(pip3 install:*)",
       "Bash(./install.sh:*)",
-      "mcp__plugin_context7_context7__query-docs"
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(zsh -n /home/seitaro/dotfiles/.zshrc)",
+      "Bash(bash -n ~/dotfiles/install.sh)",
+      "Bash(bash -n ~/dotfiles/symlink.sh)",
+      "Bash(zsh -n ~/dotfiles/.zshrc)",
+      "Bash(tmux -f ~/dotfiles/.tmux.conf new-session -d -s _check_cfg)",
+      "Bash(tmux kill-session *)",
+      "Bash(zsh -i -c 'echo \"shell loaded OK\"; echo \"IS_WSL=$IS_WSL IS_LINUX=$IS_LINUX IS_MACOS=$IS_MACOS\"; echo \"PATH /mnt entries: $\\(echo $PATH | tr : \"\\\\n\" | grep -c /mnt || true\\)\"; alias pbcopy pbpaste 2>&1 | head')",
+      "Bash(zsh -i -c 'true')",
+      "Bash(echo \"---exit $?\")"
     ],
     "deny": [],
     "ask": []

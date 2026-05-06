@@ -1,4 +1,8 @@
 OS="$(uname -s)"
+IS_WSL=0
+if [ "$OS" = "Linux" ] && grep -qi microsoft /proc/version 2>/dev/null; then
+    IS_WSL=1
+fi
 
 install_package() {
     local package="$1"
@@ -52,5 +56,9 @@ create_symlink ~/dotfiles/.zshrc ~/.zshrc
 create_symlink ~/dotfiles/.gitconfig ~/.gitconfig
 create_symlink ~/dotfiles/.tmux.conf ~/.tmux.conf
 create_symlink ~/dotfiles/.config/lazygit ~/.config/lazygit
-create_symlink ~/dotfiles/.config/ghostty ~/.config/ghostty
 create_symlink ~/dotfiles/.config/nvim ~/.config/nvim
+
+# Ghostty doesn't run on WSL (no display server)
+if [ "$IS_WSL" != "1" ]; then
+    create_symlink ~/dotfiles/.config/ghostty ~/.config/ghostty
+fi

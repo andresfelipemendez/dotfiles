@@ -1,7 +1,36 @@
 # If you come from bash you might have to change your $PATH.
-eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# OS detection
+case "$OSTYPE" in
+  darwin*) IS_MACOS=1 ;;
+  linux*)  IS_LINUX=1 ;;
+esac
+
+# WSL detection (Linux running under Windows Subsystem for Linux)
+if [[ -n "$IS_LINUX" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+  IS_WSL=1
+fi
+
+# On WSL, strip Windows /mnt/c PATH entries — they pull in Windows-side python,
+# gcloud, node, etc. that hang or fail when invoked from Linux.
+# To stop WSL from injecting them at all, set `appendWindowsPath = false` under
+# [interop] in /etc/wsl.conf and run `wsl --shutdown` from PowerShell.
+if [[ -n "$IS_WSL" ]]; then
+  PATH=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd ':' -)
+  export PATH
+fi
+
+# Homebrew (macOS Apple Silicon, macOS Intel, or Linuxbrew)
+for _brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+  [[ -x "$_brew_bin" ]] && { eval "$("$_brew_bin" shellenv)"; break; }
+done
+unset _brew_bin
+
 export PATH="$HOME/.local/bin:$PATH"
-export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"
+
+# macOS Homebrew openjdk@17
+[[ -n "$IS_MACOS" && -d "/opt/homebrew/opt/openjdk@17/bin" ]] && \
+  export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -102,10 +131,14 @@ source $ZSH/oh-my-zsh.sh
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
-alias zc="subl ~/.zshrc"
+if command -v subl >/dev/null 2>&1; then
+  alias zc="subl ~/.zshrc"
+else
+  alias zc="${EDITOR:-nvim} ~/.zshrc"
+fi
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-source <(fzf --zsh)
+command -v fzf >/dev/null 2>&1 && source <(fzf --zsh)
 
 # fzf configuration
 export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --inline-info"
@@ -124,26 +157,38 @@ alias cat='bat --pager=never --style=plain'
 alias find='fd'
 alias tree='fd --tree'
 
+# Cross-platform clipboard aliases (pbcopy/pbpaste are native on macOS)
+if [[ -n "$IS_WSL" ]]; then
+  alias pbcopy='clip.exe'
+  alias pbpaste='powershell.exe -noprofile -command Get-Clipboard'
+elif [[ -n "$IS_LINUX" ]]; then
+  if command -v wl-copy >/dev/null 2>&1; then
+    alias pbcopy='wl-copy'
+    alias pbpaste='wl-paste'
+  elif command -v xclip >/dev/null 2>&1; then
+    alias pbcopy='xclip -selection clipboard'
+    alias pbpaste='xclip -selection clipboard -o'
+  fi
+fi
+
 # Quick file search with fzf + fd
 function ff() {
     fd --type f --hidden --follow --exclude .git | fzf --preview 'bat --color=always --style=header,grid --line-range :300 {}' | xargs -r nvim
 }
 
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/andres/.lmstudio/bin"
-# End of LM Studio CLI section
+# LM Studio CLI (lms)
+[[ -d "$HOME/.lmstudio/bin" ]] && export PATH="$PATH:$HOME/.lmstudio/bin"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-if command -v gcloud >/dev/null 2>&1; then
+# Skip if gcloud resolves to a Windows install (slow + hangs from WSL)
+if command -v gcloud >/dev/null 2>&1 && [[ "$(command -v gcloud)" != /mnt/* ]]; then
     export PATH="$(gcloud info --format='value(installation.sdk_root)')/bin:$PATH"
-else
-    echo "gcloud is not installed or not in PATH"
 fi
 
-export PATH="/Users/andres/flutter/bin:$PATH"
+[[ -d "$HOME/flutter/bin" ]] && export PATH="$HOME/flutter/bin:$PATH"
 
 # Hiro GDK configuration
 HIRO_REPO="${HIRO_REPO:-$HOME/Developer/hiro-gdk}"
@@ -281,18 +326,20 @@ export PATH="$HOME/go/bin:$PATH"
 export KUBECONFIG=$HOME/.kube/config
 export EGOS=$HOME/Developer/egos-2000
 export PATH=$PATH:$HOME/Developer/xpack-riscv-none-elf-gcc-14.2.0-3/bin
-# Created by `pipx` on 2026-01-13 12:52:31
-export PATH="$PATH:/Users/andres/.local/bin"
-
 # opencode
-export PATH=/Users/andres/.opencode/bin:$PATH
+[[ -d "$HOME/.opencode/bin" ]] && export PATH="$HOME/.opencode/bin:$PATH"
 export XDG_CONFIG_HOME="$HOME/.config"
-eval "$(zoxide init zsh)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
 # pnpm
-export PNPM_HOME="/Users/andres/Library/pnpm"
+if [[ -n "$IS_MACOS" ]]; then
+  export PNPM_HOME="$HOME/Library/pnpm"
+else
+  export PNPM_HOME="$HOME/.local/share/pnpm"
+fi
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+export PATH="$HOME/.local/bin:$PATH"
