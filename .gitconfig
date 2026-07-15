@@ -11,6 +11,11 @@
         colorMoved = plain
         mnemonicPrefix = true
         renames = true
+        tool = difftastic
+[difftool]
+        prompt = false
+[difftool "difftastic"]
+        cmd = difftastic "$LOCAL" "$REMOTE"
 [push]
         default = simple
         autoSetupRemote = true
@@ -34,7 +39,11 @@
         autoStash = true
         updateRefs = true
 [merge]
-        conflictstyle = zdiff3 
+        conflictstyle = zdiff3
+        tool = mergiraf
+[mergetool "mergiraf"]
+        cmd = mergiraf --no-vcs "$BASE" "$LOCAL" "$REMOTE" --output "$MERGED"
+        trustExitCode = true 
 [pull]
         rebase = true
 

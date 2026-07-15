@@ -28,7 +28,11 @@
       "Bash(tmux kill-session *)",
       "Bash(zsh -i -c 'echo \"shell loaded OK\"; echo \"IS_WSL=$IS_WSL IS_LINUX=$IS_LINUX IS_MACOS=$IS_MACOS\"; echo \"PATH /mnt entries: $\\(echo $PATH | tr : \"\\\\n\" | grep -c /mnt || true\\)\"; alias pbcopy pbpaste 2>&1 | head')",
       "Bash(zsh -i -c 'true')",
-      "Bash(echo \"---exit $?\")"
+      "Bash(echo \"---exit $?\")",
+      "Read(//etc/**)",
+      "Bash(sudo -n cat /etc/wsl.conf)",
+      "Bash(env)",
+      "Bash(/bin/bash -c 'echo $PATH')"
     ],
     "deny": [],
     "ask": []
