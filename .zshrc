@@ -1,5 +1,14 @@
 # If you come from bash you might have to change your $PATH.
 
+# WSL: filter Windows PATH entries that shadow/hang Linux tools, but keep utilities like explorer.exe
+# Removes: Python, Node, gcloud, git, Ruby, Perl, etc. (development tools that cause hangs)
+# Keeps: Windows utilities like explorer, notepad, etc.
+if [[ "$OSTYPE" == "linux"* ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+  # Extract PATH components and filter out problematic Windows-side tools
+  PATH=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -v -E '(Python|nodejs?|gcloud|Git|Ruby|Perl|PHP|Java|Maven)' | paste -sd ':' -)
+  export PATH
+fi
+
 # OS detection
 case "$OSTYPE" in
   darwin*) IS_MACOS=1 ;;
@@ -9,15 +18,6 @@ esac
 # WSL detection (Linux running under Windows Subsystem for Linux)
 if [[ -n "$IS_LINUX" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
   IS_WSL=1
-fi
-
-# On WSL, strip Windows /mnt/c PATH entries — they pull in Windows-side python,
-# gcloud, node, etc. that hang or fail when invoked from Linux.
-# To stop WSL from injecting them at all, set `appendWindowsPath = false` under
-# [interop] in /etc/wsl.conf and run `wsl --shutdown` from PowerShell.
-if [[ -n "$IS_WSL" ]]; then
-  PATH=$(printf '%s\n' "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd ':' -)
-  export PATH
 fi
 
 # Homebrew (macOS Apple Silicon, macOS Intel, or Linuxbrew)
@@ -343,3 +343,4 @@ case ":$PATH:" in
 esac
 # pnpm end
 export PATH="$HOME/.local/bin:$PATH"
+export XCURSOR_SIZE=24
