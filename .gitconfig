@@ -12,10 +12,14 @@
         mnemonicPrefix = true
         renames = true
         external = difft
+        tool = difftastic
 [difftool]
         prompt = false
+
+[pager]
+        difftool = true
 [difftool "difftastic"]
-        cmd = difftastic "$LOCAL" "$REMOTE"
+        cmd = difft "$MERGED" "$LOCAL" "abcdef1" "100644" "$REMOTE" "abcdef2" "100644"
 [push]
         default = simple
         autoSetupRemote = true
@@ -46,6 +50,11 @@
         trustExitCode = true 
 [pull]
         rebase = true
+
+[alias]
+        dl = -c diff.external=difft log -p --ext-diff
+        ds = -c diff.external=difft show --ext-diff
+        dft = -c diff.external=difft diff
 
 [url "ssh://git@github.com/"]
     insteadOf = https://github.com/
