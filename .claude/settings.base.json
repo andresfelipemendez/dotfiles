@@ -1,0 +1,16 @@
+{
+  "model": "opus[1m]",
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "caveman@caveman": true
+  }
+}

@@ -11,6 +11,8 @@ set -eo pipefail
 # =============================================================================
 DOTFILES_REPO="https://github.com/andresfelipemendez/dotfiles.git"
 DOTFILES_DIR="$HOME/dotfiles"
+CAVEMAN_MARKETPLACE="JuliusBrussee/caveman"
+CAVEMAN_DEFAULT_MODE="full"
 OS="$(uname -s)"
 IS_WSL=0
 if [[ "$OS" == "Linux" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
@@ -204,6 +206,8 @@ install_nix_packages() {
         "gh"
         "kubectl"
         "ripgrep"
+        "jq"
+        "nodejs"
     )
     # Ghostty needs a display server — skip on WSL
     if [[ "$IS_WSL" -ne 1 ]]; then
@@ -350,6 +354,133 @@ install_homebrew() {
     fi
 }
 
+install_claude_code() {
+    if command -v claude &>/dev/null; then
+        info "Claude Code is already installed"
+        return 0
+    fi
+
+    info "Installing Claude Code..."
+    curl -fsSL https://claude.ai/install.sh | bash
+
+    # The installer drops the binary in ~/.local/bin, which isn't on PATH yet
+    # in this session — the .zshrc that adds it only loads on the next shell.
+    if [[ -x "$HOME/.local/bin/claude" ]]; then
+        PATH="$HOME/.local/bin:$PATH"
+    fi
+}
+
+# Install the caveman plugin. The plugin itself declares its SessionStart
+# (auto-activate) and UserPromptSubmit (mode tracker) hooks using
+# ${CLAUDE_PLUGIN_ROOT}, so those need no wiring — running caveman's standalone
+# hooks/install.sh here would register a duplicate copy of both. Only the
+# statusline needs setting up, since statusLine can't come from a plugin.
+# Non-fatal: a fresh machine may not be logged into Claude Code yet, and that
+# must not abort the bootstrap.
+configure_caveman() {
+    if ! command -v claude &>/dev/null; then
+        error "claude not on PATH — skipping caveman setup"
+        return 0
+    fi
+
+    info "Installing caveman plugin..."
+    if ! claude plugin marketplace add "$CAVEMAN_MARKETPLACE"; then
+        error "Failed to add caveman marketplace — skipping caveman setup"
+        return 0
+    fi
+    if ! claude plugin install caveman@caveman; then
+        error "Failed to install caveman plugin — skipping caveman hooks"
+        return 0
+    fi
+
+    # Default intensity, only when the user hasn't picked one on this machine
+    local mode_file="$HOME/.claude/.caveman-active"
+    if [[ ! -f "$mode_file" ]]; then
+        mkdir -p "$HOME/.claude"
+        echo "$CAVEMAN_DEFAULT_MODE" > "$mode_file"
+        info "Set caveman default mode: $CAVEMAN_DEFAULT_MODE"
+    fi
+
+    # The plugin's hooks run through node
+    if ! command -v node &>/dev/null; then
+        error "node not found — caveman hooks will not run until node is installed"
+    fi
+
+    configure_caveman_statusline
+}
+
+# Point statusLine at the caveman badge script inside the plugin cache. The path
+# carries the plugin version, so it's resolved per machine and per update rather
+# than tracked in settings.base.json.
+configure_caveman_statusline() {
+    local settings="$HOME/.claude/settings.json"
+    local script
+    script=$(find "$HOME/.claude/plugins/cache/caveman" -maxdepth 4 \
+        -path '*/hooks/caveman-statusline.sh' 2>/dev/null | sort | tail -1)
+
+    if [[ -z "$script" ]]; then
+        error "caveman-statusline.sh not found in plugin cache — skipping statusline"
+        return 0
+    fi
+    if ! command -v jq &>/dev/null; then
+        error "jq not found — skipping caveman statusline setup"
+        return 0
+    fi
+
+    mkdir -p "$HOME/.claude"
+    [[ -f "$settings" ]] || echo '{}' > "$settings"
+
+    # Leave a non-caveman statusline alone; refresh a stale caveman one
+    local current
+    current=$(jq -r '.statusLine.command // ""' "$settings")
+    if [[ -n "$current" && "$current" != *caveman-statusline.sh* ]]; then
+        info "Custom statusLine already set — leaving it alone"
+        return 0
+    fi
+    if [[ "$current" == *"$script"* ]]; then
+        info "caveman statusline is already configured"
+        return 0
+    fi
+
+    chmod +x "$script"
+    local updated="$TEMP_DIR/claude-statusline.json"
+    if jq --arg cmd "bash \"$script\"" \
+        '.statusLine = {type: "command", command: $cmd}' "$settings" > "$updated"; then
+        mv "$updated" "$settings"
+        info "Configured caveman statusline"
+    else
+        error "Failed to set statusLine in $settings — left untouched"
+    fi
+}
+
+# Merge the tracked, portable Claude settings into ~/.claude/settings.json.
+# Deep merge (jq '*') so machine-specific keys — absolute hook paths, the
+# statusline the caveman installer wrote, local permissions — all survive.
+apply_claude_settings() {
+    local base="$DOTFILES_DIR/.claude/settings.base.json"
+    local settings="$HOME/.claude/settings.json"
+
+    if [[ ! -f "$base" ]]; then
+        error "$base not found — skipping Claude settings merge"
+        return 0
+    fi
+    if ! command -v jq &>/dev/null; then
+        error "jq not found — skipping Claude settings merge"
+        return 0
+    fi
+
+    mkdir -p "$HOME/.claude"
+    [[ -f "$settings" ]] || echo '{}' > "$settings"
+
+    local merged="$TEMP_DIR/claude-settings.json"
+    if jq -s '.[0] * .[1]' "$settings" "$base" > "$merged"; then
+        mv "$merged" "$settings"
+        info "Merged tracked Claude settings into $settings"
+    else
+        error "Failed to merge $base into $settings — left untouched"
+    fi
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -390,14 +521,24 @@ main() {
         check_and_install "tmux" ""
         check_and_install "nvim" "" "neovim"
         check_and_install "htop" ""
-        check_and_install "ripgrep" ""
+        # Binary is rg, formula is ripgrep
+        check_and_install "rg" "" "ripgrep"
         check_and_install "fzf" ""
         check_and_install "lazygit" ""
         check_and_install "fd" ""
         check_and_install "bat" ""
         check_and_install "gh" ""
         check_and_install "kubectl" ""
-        check_and_install "openjdk@17" ""
+        check_and_install "jq" ""
+        # node backs the caveman hooks; nvm-managed node still wins on PATH
+        check_and_install "node" ""
+        # openjdk@17 is keg-only — no command to probe, so ask brew directly
+        if brew list --formula openjdk@17 &>/dev/null; then
+            info "openjdk@17 is already installed"
+        else
+            info "openjdk@17 not found, installing..."
+            brew install openjdk@17
+        fi
 
         # Install cask applications
         info "Installing applications..."
@@ -444,7 +585,7 @@ main() {
             check_and_install "$package" ""
         done
 
-        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, ghostty)
+        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, jq, nodejs, ghostty)
         install_nix_packages
 
         # Install neovim via Nix (with version check)
@@ -487,6 +628,11 @@ main() {
     else
         info "TPM is already installed"
     fi
+
+    # Claude Code + caveman (cross-platform)
+    install_claude_code
+    configure_caveman
+    apply_claude_settings
 
     # Create symlinks
     info "Creating symlinks..."
