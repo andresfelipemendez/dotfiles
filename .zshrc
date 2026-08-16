@@ -323,6 +323,9 @@ export PATH="/usr/local/go/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
 # Zig is already in ~/.local/bin which is added at the top
 
+# sudo -A pulls the password from 1Password instead of prompting
+[[ -x "$HOME/.local/bin/sudo-askpass" ]] && export SUDO_ASKPASS="$HOME/.local/bin/sudo-askpass"
+
 export KUBECONFIG=$HOME/.kube/config
 export EGOS=$HOME/Developer/egos-2000
 export PATH=$PATH:$HOME/Developer/xpack-riscv-none-elf-gcc-14.2.0-3/bin

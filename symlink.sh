@@ -55,6 +55,7 @@ fi
 create_symlink ~/dotfiles/.zshrc ~/.zshrc
 create_symlink ~/dotfiles/.gitconfig ~/.gitconfig
 create_symlink ~/dotfiles/.tmux.conf ~/.tmux.conf
+create_symlink ~/dotfiles/bin/sudo-askpass ~/.local/bin/sudo-askpass
 create_symlink ~/dotfiles/.config/lazygit ~/.config/lazygit
 create_symlink ~/dotfiles/.config/nvim ~/.config/nvim
 

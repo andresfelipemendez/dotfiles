@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# SUDO_ASKPASS helper: hands sudo a password on stdout instead of prompting.
+#
+#   export SUDO_ASKPASS="$HOME/.local/bin/sudo-askpass"
+#   sudo -A apt-get update        # or: sudo --askpass ...
+#
+# The password is read from 1Password at call time, so it never lands in shell
+# history, in argv, in an environment variable, or on disk. Override the item
+# with SUDO_ASKPASS_OP_REF if yours lives somewhere other than the default.
+#
+# If op is missing or locked, this falls back to a normal terminal prompt so
+# sudo still works rather than failing outright.
+
+set -eu
+
+OP_REF="${SUDO_ASKPASS_OP_REF:-op://Private/sudo/password}"
+
+prompt_on_tty() {
+    # sudo swallows stdout, so the prompt has to go to the terminal directly.
+    # /dev/tty can exist yet fail to open (cron, a detached process), so test by
+    # opening it rather than trusting the permission bits.
+    # A failed redirection on `exec` terminates the shell outright, so probe in a
+    # subshell first — there, the failure is contained and just sets exit status.
+    if ! (exec 3<>/dev/tty) 2>/dev/null; then
+        echo "sudo-askpass: no terminal available to prompt on" >&2
+        return 1
+    fi
+    exec 3<>/dev/tty
+    printf '%s ' "${1:-Password:}" >&3
+    stty -echo <&3
+    read -r reply <&3
+    stty echo <&3
+    printf '\n' >&3
+    exec 3>&-
+    printf '%s\n' "$reply"
+}
+
+if command -v op >/dev/null 2>&1; then
+    if password=$(op read "$OP_REF" 2>/dev/null) && [ -n "$password" ]; then
+        printf '%s\n' "$password"
+        exit 0
+    fi
+    echo "sudo-askpass: could not read $OP_REF (1Password locked or item missing)" >&2
+else
+    echo "sudo-askpass: op not found on PATH" >&2
+fi
+
+prompt_on_tty "[sudo] password for $(id -un):"

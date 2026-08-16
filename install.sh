@@ -13,6 +13,11 @@ DOTFILES_REPO="https://github.com/andresfelipemendez/dotfiles.git"
 DOTFILES_DIR="$HOME/dotfiles"
 CAVEMAN_MARKETPLACE="JuliusBrussee/caveman"
 CAVEMAN_DEFAULT_MODE="full"
+# Terminal font, shared by the ghostty config and the Ptyxis/GNOME settings below
+NERD_FONT_NIX_ATTR="nerd-fonts.sauce-code-pro"
+NERD_FONT_BREW_CASK="font-sauce-code-pro-nerd-font"
+NERD_FONT_NAME="SauceCodePro Nerd Font Mono"
+NERD_FONT_SIZE=14
 OS="$(uname -s)"
 IS_WSL=0
 if [[ "$OS" == "Linux" ]] && grep -qi microsoft /proc/version 2>/dev/null; then
@@ -208,6 +213,8 @@ install_nix_packages() {
         "ripgrep"
         "jq"
         "nodejs"
+        # Server + client binaries; no daemon is configured (see README)
+        "postgresql_18"
     )
     # Ghostty needs a display server — skip on WSL
     if [[ "$IS_WSL" -ne 1 ]]; then
@@ -220,7 +227,7 @@ install_nix_packages() {
 
     for pkg in "${nix_packages[@]}"; do
         # Check if already installed via nix profile (not system package)
-        if echo "$installed_nix_pkgs" | grep -q "legacyPackages.*\.$pkg\$"; then
+        if echo "$installed_nix_pkgs" | grep "legacyPackages.*\.$pkg\$" >/dev/null; then
             info "$pkg is already installed via Nix"
         else
             info "Installing $pkg via Nix..."
@@ -262,6 +269,138 @@ install_neovim_nix() {
         nix profile add nixpkgs#neovim
     else
         info "neovim v$current_version is up to date (nixpkgs has v$nix_version)"
+    fi
+}
+
+install_go_nix() {
+    info "Checking go version..."
+
+    # Ensure nix is available
+    if ! command -v nix &>/dev/null; then
+        if [[ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]]; then
+            . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+        fi
+    fi
+
+    # Get available version from nixpkgs
+    local nix_version
+    nix_version=$(nix eval --raw nixpkgs#go.version 2>/dev/null || echo "")
+    if [[ -z "$nix_version" ]]; then
+        error "Failed to get go version from nixpkgs"
+        return 1
+    fi
+
+    # Get current installed version (if any) — "go version go1.26.5 linux/amd64"
+    local current_version=""
+    if command -v go &>/dev/null; then
+        current_version=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+(\.[0-9]+)?' || echo "")
+    fi
+
+    if [[ -z "$current_version" ]]; then
+        info "go not installed, installing v$nix_version via Nix..."
+        nix profile add nixpkgs#go
+    elif version_gt "$nix_version" "$current_version"; then
+        info "go upgrade available: v$current_version -> v$nix_version"
+        info "Installing go v$nix_version via Nix..."
+        nix profile add nixpkgs#go
+    else
+        info "go v$current_version is up to date (nixpkgs has v$nix_version)"
+    fi
+}
+
+# Nix installs fonts under ~/.nix-profile/share/fonts, which distro fontconfig
+# does not scan. Link it into ~/.local/share/fonts (which it does scan) so GTK
+# apps — Ptyxis, GNOME Terminal — can actually see the family by name.
+install_nerd_font_linux() {
+    info "Installing $NERD_FONT_NAME via Nix..."
+
+    if nix profile list 2>/dev/null | grep "legacyPackages.*\.${NERD_FONT_NIX_ATTR}\$" >/dev/null; then
+        info "$NERD_FONT_NAME is already installed via Nix"
+    else
+        nix profile add "nixpkgs#${NERD_FONT_NIX_ATTR}"
+    fi
+
+    local nix_fonts="$HOME/.nix-profile/share/fonts"
+    local link="$HOME/.local/share/fonts/nix-profile"
+    if [[ ! -d "$nix_fonts" ]]; then
+        error "$nix_fonts not found — font installed but fontconfig cannot see it"
+        return 0
+    fi
+
+    mkdir -p "$HOME/.local/share/fonts"
+    if [[ "$(readlink -f "$link" 2>/dev/null)" != "$(readlink -f "$nix_fonts")" ]]; then
+        ln -sfn "$nix_fonts" "$link"
+        info "Linked $nix_fonts -> $link"
+    fi
+
+    if command -v fc-cache &>/dev/null; then
+        fc-cache -f "$HOME/.local/share/fonts" >/dev/null
+    fi
+
+    # grep -q exits on the first match, which SIGPIPEs the writer; under
+    # `set -o pipefail` that surfaces as 141 and reads as "not found" even on a
+    # hit. Plain grep drains its input, so the status reflects the match.
+    if command -v fc-list &>/dev/null && ! fc-list | grep -F "$NERD_FONT_NAME" >/dev/null; then
+        error "fontconfig still does not report '$NERD_FONT_NAME' — check ~/.local/share/fonts"
+    fi
+}
+
+# Ptyxis is the default terminal on Ubuntu 23.10+ (it replaced GNOME Terminal).
+# Both are configured here; whichever schema is present gets updated.
+configure_gnome_terminal_font() {
+    if ! command -v gsettings &>/dev/null; then
+        info "gsettings not found — skipping GNOME terminal font setup"
+        return 0
+    fi
+
+    local font="$NERD_FONT_NAME $NERD_FONT_SIZE"
+    local schemas
+    schemas=$(gsettings list-schemas 2>/dev/null || echo "")
+
+    # Ptyxis: font is an app-level setting, not per-profile
+    if echo "$schemas" | grep -x "org.gnome.Ptyxis" >/dev/null; then
+        gsettings set org.gnome.Ptyxis use-system-font false
+        gsettings set org.gnome.Ptyxis font-name "$font"
+        info "Set Ptyxis font: $font"
+    fi
+
+    # GNOME Terminal: font lives on the default profile
+    if echo "$schemas" | grep -x "org.gnome.Terminal.ProfilesList" >/dev/null; then
+        local uuid
+        uuid=$(gsettings get org.gnome.Terminal.ProfilesList default | tr -d "'")
+        if [[ -n "$uuid" ]]; then
+            local path="org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$uuid/"
+            gsettings set "$path" use-system-font false
+            gsettings set "$path" font "$font"
+            info "Set GNOME Terminal font: $font"
+        fi
+    fi
+}
+
+# Nix-installed apps ship a .desktop file under ~/.nix-profile/share/applications,
+# but the desktop session only reads XDG_DATA_DIRS as it existed at login — a
+# PATH/XDG export in .zshrc comes too late. Copying the entry into
+# ~/.local/share/applications (always scanned) makes ghostty show up in the app
+# launcher instead of being CLI-only.
+register_nix_desktop_entries() {
+    local src="$HOME/.nix-profile/share/applications"
+    local dest="$HOME/.local/share/applications"
+
+    [[ -d "$src" ]] || return 0
+    mkdir -p "$dest"
+
+    local entry name
+    for entry in "$src"/*.desktop; do
+        [[ -e "$entry" ]] || continue
+        name=$(basename "$entry")
+        if [[ ! -L "$dest/$name" || "$(readlink -f "$dest/$name")" != "$(readlink -f "$entry")" ]]; then
+            ln -sfn "$entry" "$dest/$name"
+            info "Registered desktop entry: $name"
+        fi
+    done
+
+    if command -v update-desktop-database &>/dev/null; then
+        update-desktop-database "$dest" 2>/dev/null || true
     fi
 }
 
@@ -532,6 +671,25 @@ main() {
         check_and_install "jq" ""
         # node backs the caveman hooks; nvm-managed node still wins on PATH
         check_and_install "node" ""
+        # brew always ships the current go; upgrade an existing one rather than
+        # leaving a stale version behind
+        if ! command -v go &>/dev/null; then
+            info "go not found, installing..."
+            brew install go
+        elif brew outdated --formula go &>/dev/null && [[ -n "$(brew outdated --formula go)" ]]; then
+            info "go upgrade available, upgrading..."
+            brew upgrade go
+        else
+            # BSD grep has no -oP, so parse the version field with awk/sed
+            info "go $(go version | awk '{print $3}' | sed 's/^go//') is up to date"
+        fi
+        # postgresql@18 is keg-only — psql never lands on PATH, so ask brew directly
+        if brew list --formula postgresql@18 &>/dev/null; then
+            info "postgresql@18 is already installed"
+        else
+            info "postgresql@18 not found, installing..."
+            brew install postgresql@18
+        fi
         # openjdk@17 is keg-only — no command to probe, so ask brew directly
         if brew list --formula openjdk@17 &>/dev/null; then
             info "openjdk@17 is already installed"
@@ -546,6 +704,15 @@ main() {
         check_and_install_cask "Docker" "docker"
         check_and_install_cask "Hammerspoon" "hammerspoon"
         check_and_install_cask "Ghostty" "ghostty"
+
+        # Terminal font — Terminal.app/iTerm are configured by hand, ghostty
+        # picks it up from the tracked config
+        if brew list --cask "$NERD_FONT_BREW_CASK" &>/dev/null; then
+            info "$NERD_FONT_NAME is already installed"
+        else
+            info "$NERD_FONT_NAME not found, installing..."
+            brew install --cask "$NERD_FONT_BREW_CASK"
+        fi
 
         # Google Cloud SDK
         if ! command -v gcloud &>/dev/null; then
@@ -585,11 +752,22 @@ main() {
             check_and_install "$package" ""
         done
 
-        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, jq, nodejs, ghostty)
+        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, jq,
+        # nodejs, postgresql 18, ghostty)
         install_nix_packages
 
         # Install neovim via Nix (with version check)
         install_neovim_nix
+
+        # Install go via Nix (with version check)
+        install_go_nix
+
+        # Terminal font + GUI wiring (needs a desktop session, so not on WSL)
+        if [[ "$IS_WSL" -ne 1 ]]; then
+            install_nerd_font_linux
+            configure_gnome_terminal_font
+            register_nix_desktop_entries
+        fi
 
         # Install from official repos (these need special setup)
         info "Installing from official repos..."
@@ -637,6 +815,16 @@ main() {
     # Create symlinks
     info "Creating symlinks..."
     ./symlink.sh
+
+    # Install tmux plugins (needs ~/.tmux.conf, so run after symlinks)
+    if [[ -x "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]]; then
+        info "Installing tmux plugins..."
+        "$HOME/.tmux/plugins/tpm/bin/install_plugins"
+        # Reload any running tmux server so the theme applies immediately
+        if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
+            tmux source-file "$HOME/.tmux.conf"
+        fi
+    fi
 
     info "=========================================="
     info "  Installation complete!"

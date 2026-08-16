@@ -57,7 +57,7 @@
         dft = -c diff.external=difft diff
 
 [url "ssh://git@github.com/"]
-    insteadOf = https://github.com/
+    pushInsteadOf = https://github.com/
 [gitbutler]
 	aiModelProvider = anthropic
 	aiAnthropicKeyOption = butlerAPI
