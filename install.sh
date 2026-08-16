@@ -754,7 +754,8 @@ main() {
             # No xclip on WSL — clipboard goes through clip.exe / powershell
             packages="zsh tmux htop unzip"
         else
-            packages="zsh tmux xclip htop unzip"
+            # xclip covers X11, wl-clipboard covers Wayland; tmux picks per session
+            packages="zsh tmux xclip wl-clipboard htop unzip"
         fi
         for package in $packages; do
             check_and_install "$package" ""
