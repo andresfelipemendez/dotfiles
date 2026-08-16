@@ -212,6 +212,10 @@ install_nix_packages() {
         "kubectl"
         "ripgrep"
         "jq"
+        # git's external diff/difftool per .gitconfig — binary is difft
+        "difftastic"
+        # git's mergetool per .gitconfig (syntax-aware conflict resolution)
+        "mergiraf"
         "nodejs"
         # Server + client binaries; no daemon is configured (see README)
         "postgresql_18"
@@ -669,6 +673,10 @@ main() {
         check_and_install "gh" ""
         check_and_install "kubectl" ""
         check_and_install "jq" ""
+        # git's external diff/difftool per .gitconfig; binary is difft, formula is difftastic
+        check_and_install "difft" "" "difftastic"
+        # git's mergetool per .gitconfig (syntax-aware conflict resolution)
+        check_and_install "mergiraf" ""
         # node backs the caveman hooks; nvm-managed node still wins on PATH
         check_and_install "node" ""
         # brew always ships the current go; upgrade an existing one rather than
@@ -753,7 +761,7 @@ main() {
         done
 
         # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, jq,
-        # nodejs, postgresql 18, ghostty)
+        # difftastic, mergiraf, nodejs, postgresql 18, ghostty)
         install_nix_packages
 
         # Install neovim via Nix (with version check)

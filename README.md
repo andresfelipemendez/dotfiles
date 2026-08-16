@@ -12,7 +12,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/andresfelipemendez/dotfi
 
 | Category | Packages |
 |----------|----------|
-| **Core** | zsh, git, tmux, neovim, curl, htop, unzip, xclip, ripgrep, jq, node |
+| **Core** | zsh, git, tmux, neovim, curl, htop, unzip, xclip, ripgrep, jq, difftastic, mergiraf, node |
 | **Languages / DB** | go (version-checked against nixpkgs/brew on every run), postgresql 18 (binaries only — no server is initialized or started) |
 | **GitHub (latest)** | fzf, lazygit, fd, bat |
 | **Official repos** | gh, Docker, 1Password, gcloud, kubectl |
