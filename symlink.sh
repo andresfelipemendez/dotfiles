@@ -62,4 +62,13 @@ create_symlink ~/dotfiles/.config/nvim ~/.config/nvim
 # Ghostty doesn't run on WSL (no display server)
 if [ "$IS_WSL" != "1" ]; then
     create_symlink ~/dotfiles/.config/ghostty ~/.config/ghostty
+
+    # macOS Ghostty reads Application Support *after* ~/.config, so a stray
+    # config there silently overrides the dotfiles one. Point both at the
+    # same file. Ghostty also writes a template here on first launch if it
+    # finds no config at all, which is how the shadow copy appears.
+    if [ "$OS" = "Darwin" ]; then
+        create_symlink ~/dotfiles/.config/ghostty/config \
+            ~/"Library/Application Support/com.mitchellh.ghostty/config"
+    fi
 fi
