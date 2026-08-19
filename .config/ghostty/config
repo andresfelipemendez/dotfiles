@@ -1,8 +1,8 @@
 # Ghostty Configuration
 
 # Font
-font-family = SauceCodePro Nerd Font Mono
-font-size = 14
+font-family = IosevkaTerm NF
+font-size = 18
 
 # Window
 window-padding-x = 8

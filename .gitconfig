@@ -32,11 +32,12 @@
         autocorrect = prompt
 [commit]
         verbose = true
+	template = /Users/andres/.stCommitMsg
 [rerere]
         enabled = true
         autoupdate = true
 [core]
-        excludesfile = ~/.gitignore
+	excludesfile = /Users/andres/.gitignore
 	    autocrlf = input
 [rebase]
         autoSquash = true
@@ -61,3 +62,9 @@
 [gitbutler]
 	aiModelProvider = anthropic
 	aiAnthropicKeyOption = butlerAPI
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+[mergetool "sourcetree"]
+	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true

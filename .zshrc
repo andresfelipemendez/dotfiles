@@ -157,6 +157,18 @@ alias cat='bat --pager=never --style=plain'
 alias find='fd'
 alias tree='fd --tree'
 
+# eza: ls with icons, colors and git status. Bare `ls` is a long vertical
+# listing (like `ls -la`); `lss` is the plain grid when that is too noisy.
+if command -v eza >/dev/null 2>&1; then
+  _EZA_OPTS='--icons --group-directories-first --git'
+  alias ls="eza -la $_EZA_OPTS"
+  alias lss="eza $_EZA_OPTS"
+  alias ll="eza -la $_EZA_OPTS"
+  alias la="eza -a $_EZA_OPTS"
+  alias lt="eza -la --tree --level=2 $_EZA_OPTS"
+  unset _EZA_OPTS
+fi
+
 # Cross-platform clipboard aliases (pbcopy/pbpaste are native on macOS)
 if [[ -n "$IS_WSL" ]]; then
   alias pbcopy='clip.exe'

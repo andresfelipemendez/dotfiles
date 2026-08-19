@@ -17,6 +17,8 @@ CAVEMAN_DEFAULT_MODE="full"
 NERD_FONT_NIX_ATTR="nerd-fonts.sauce-code-pro"
 NERD_FONT_BREW_CASK="font-sauce-code-pro-nerd-font"
 NERD_FONT_NAME="SauceCodePro Nerd Font Mono"
+# Filename prefix of the installed .ttf files, used to detect a hand-installed copy
+NERD_FONT_FILE_GLOB="SauceCodeProNerdFont*.ttf"
 NERD_FONT_SIZE=14
 OS="$(uname -s)"
 IS_WSL=0
@@ -35,6 +37,11 @@ info() {
 
 error() {
     printf '\033[0;31m%s\033[0m\n' "$1" >&2
+}
+
+# Non-fatal problem: the step did not succeed but the install can continue
+warn() {
+    printf '\033[0;33m%s\033[0m\n' "$1" >&2
 }
 
 cleanup() {
@@ -208,6 +215,8 @@ install_nix_packages() {
         "lazygit"
         "fd"
         "bat"
+        # ls replacement with icons/colors/git status (aliased to ls in .zshrc)
+        "eza"
         "gh"
         "kubectl"
         "ripgrep"
@@ -670,6 +679,8 @@ main() {
         check_and_install "lazygit" ""
         check_and_install "fd" ""
         check_and_install "bat" ""
+        # ls replacement with icons/colors/git status (aliased to ls in .zshrc)
+        check_and_install "eza" ""
         check_and_install "gh" ""
         check_and_install "kubectl" ""
         check_and_install "jq" ""
@@ -717,9 +728,18 @@ main() {
         # picks it up from the tracked config
         if brew list --cask "$NERD_FONT_BREW_CASK" &>/dev/null; then
             info "$NERD_FONT_NAME is already installed"
+        elif compgen -G "$HOME/Library/Fonts/$NERD_FONT_FILE_GLOB" >/dev/null 2>&1 ||
+             compgen -G "/Library/Fonts/$NERD_FONT_FILE_GLOB" >/dev/null 2>&1; then
+            # Font files are on disk but brew does not own them (hand-installed,
+            # or a previous cask version left them behind). A plain install aborts
+            # with "there is already a Font at ..."; --force adopts the files.
+            info "$NERD_FONT_NAME found outside brew, adopting with --force..."
+            brew install --cask --force "$NERD_FONT_BREW_CASK" ||
+                warn "Could not adopt $NERD_FONT_NAME into brew; the font is already installed, continuing"
         else
             info "$NERD_FONT_NAME not found, installing..."
-            brew install --cask "$NERD_FONT_BREW_CASK"
+            brew install --cask "$NERD_FONT_BREW_CASK" ||
+                warn "Failed to install $NERD_FONT_NAME; set the terminal font by hand"
         fi
 
         # Google Cloud SDK
@@ -761,7 +781,7 @@ main() {
             check_and_install "$package" ""
         done
 
-        # Install packages via Nix (fzf, lazygit, fd, bat, gh, kubectl, ripgrep, jq,
+        # Install packages via Nix (fzf, lazygit, fd, bat, eza, gh, kubectl, ripgrep, jq,
         # difftastic, mergiraf, nodejs, postgresql 18, ghostty)
         install_nix_packages
 
